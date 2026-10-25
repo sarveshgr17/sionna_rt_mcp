@@ -1,146 +1,222 @@
-# Sionna RT Model Context Protocol (MCP) Server - Step 3
+# Sionna RT Model Context Protocol (MCP) Server
 
-This project provides a **Model Context Protocol (MCP)** server that enables AI clients (such as Claude Desktop, Cursor, or custom MCP agents) to configure, execute, and analyze **NVIDIA Sionna RT** radio wave simulations through structured tools.
+An end-to-end bridge connecting **LLM AI agents** to **NVIDIA Sionna RT** through the **Model Context Protocol (MCP)**. This enables AI systems to autonomously discover propagation tools, configure radio frequency (RF) simulations, execute 3D ray tracing, derive physical wireless channel metrics, generate publication-quality visualizations, and interpret multi-frequency propagation phenomena.
 
 ---
 
-## Architecture
+## 1. Project Purpose & Problem Solved
 
-The system follows a strict layered architecture:
+Modern AI assistants excel at natural language reasoning and high-level problem solving, but lack direct access to physical radio-frequency propagation engines. Conversely, RF simulation frameworks like NVIDIA Sionna RT provide state-of-the-art ray tracing, but require specialized Python scripts and Mitsuba rendering pipelines.
+
+**This project solves that interface barrier by providing:**
+1. A **standardized Model Context Protocol (MCP) server** exposing deterministic radio ray-tracing capabilities over standard input/output (`stdio` JSON-RPC).
+2. A **simulation engine** abstracting Mitsuba 3 backend selection (GPU NVIDIA OptiX or CPU LLVM JIT fallback).
+3. A **wireless channel analysis layer** calculating derived RF metrics (strongest path, Line of Sight detection, RMS delay spread, power contribution breakdown).
+4. A **visualization layer** generating top-down 2D ray trajectories, power waterfall budgets, Channel Impulse Response (CIR) stem plots, and comparative visualizations.
+5. An **autonomous AI agent client** that dynamically chains tools to answer complex multi-frequency tasks (e.g., comparing 3.5 GHz mid-band vs 28.0 GHz millimeter-wave propagation).
+
+---
+
+## 2. System Architecture
+
+The project adheres to a strict, layered architecture with clean separation of concerns:
 
 ```text
-AI / MCP Client (Claude Desktop, Cursor, etc.)
-      │  (stdio JSON-RPC transport)
-      ▼
+Natural-Language Task (e.g. "Compare 3.5 GHz and 28 GHz between TX and RX")
+       │
+       ▼
+AI Agent Client (`scripts/agent_client.py`)
+       │  • Task parsing (regex parameter extraction)
+       │  • Tool discovery & multi-step execution planning
+       │  • stdio JSON-RPC transport
+       ▼
 MCP Server (`src/mcp_server.py`)
-      │  (validation & tool routing)
-      ▼
+       │  • Strict Pydantic input validation & schema enforcement
+       │  • Standardized ToolError generation
+       │  • Clean routing to backend components
+       ▼
 SimulationEngine (`src/engine.py`)
-      │  (scene loading, transceivers, path solving)
-      ▼
-NVIDIA Sionna RT & Mitsuba 3
-      │  (GPU OptiX or CPU LLVM ray tracing)
-      ▼
+       │  • Mitsuba backend variant management (CUDA OptiX or CPU LLVM)
+       │  • Transceiver placement & antenna array setup
+       │  • Path solving & ray extraction
+       ▼
+NVIDIA Sionna RT (`sionna.rt`) & Mitsuba 3 (`mitsuba`)
+       │  • 3D electromagnetic ray tracing
+       ▼
 SimulationResult (`src/result.py`)
-      │  (propagation metrics & JSON serialization)
-      ▼
-MCP Response (structured content & text)
-```
-
-The MCP server acts as an interface layer only. It contains **no ray-tracing logic**, which remains encapsulated in `SimulationEngine`.
-
----
-
-## Project Structure
-
-```
-Sionna_RT_MCP/
-├── .gitignore               # Git ignore rules for virtualenv, caches, and logs
-├── pytest.ini               # Pytest root and PYTHONPATH configuration
-├── README.md                # Project documentation
-├── requirements.txt         # Core dependencies (sionna-rt, numpy, pytest, mcp)
-├── scripts/
-│   ├── verify_env.py        # Environment diagnostic and sanity check script
-│   └── verify_mcp_client.py # Automated end-to-end MCP client verification script
-├── src/
-│   ├── __init__.py          # Package initialization & public exports
-│   ├── config.py            # Centralized simulation configuration dataclass
-│   ├── engine.py            # Reusable SimulationEngine executing ray tracing
-│   ├── formatter.py         # Standalone terminal output formatter
-│   ├── mcp_server.py        # Model Context Protocol (MCP) server over stdio
-│   ├── result.py            # Structured SimulationResult dataclass with to_dict()
-│   └── simulation.py        # CLI entrypoint and backward-compatible helper
-└── tests/
-    ├── test_engine.py       # Tests for SimulationEngine, structured result, and JSON dict
-    ├── test_mcp.py          # Unit & integration tests for MCP server tools and stdio client
-    └── test_simulation.py   # Tests for simulation physical validity and backward compatibility
+       │  • Immutable container for raw propagation data
+       ▼
+ChannelAnalyzer (`src/analyzer.py`)
+       │  • RMS delay spread calculation
+       │  • Strongest path identification
+       │  • Line-of-Sight (LOS) vs Non-Line-of-Sight (NLOS) detection
+       │  • Path percentage power contributions
+       ▼
+SimulationStorage (`src/storage.py`) & Visualizer (`src/visualizer.py`)
+       │  • Unique timestamped storage (`results/<simulation_id>/`)
+       │  • 2D propagation paths, power budget, CIR, and comparison plots
+       ▼
+AI-Readable Response & Human Explanation
 ```
 
 ---
 
-## MCP Tools Implemented
+## 3. Environment Requirements & Installation
 
-The server registers exactly three focused tools:
+### Requirements
+* **Operating System**: Linux (Ubuntu 20.04/22.04 LTS or WSL2 on Windows)
+* **Python**: Python 3.10 or 3.11 (tested on 3.11.15)
+* **Hardware/Accelerators**:
+  * **GPU (Recommended)**: NVIDIA GPU with CUDA and OptiX support (`libnvoptix.so.1`)
+  * **CPU (Fully Supported Fallback)**: Multi-core x86_64 CPU running LLVM JIT (`llvm_ad_mono_polarized`)
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repo-url>
+   cd Sionna_RT_MCP
+   ```
+
+2. **Create and activate a virtual environment**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+4. **Verify environment health**:
+   ```bash
+   python scripts/verify_env.py
+   ```
+
+---
+
+## 4. MCP Tools Catalog
+
+The MCP server exposes 5 deterministic tools over `stdio`:
 
 ### 1. `check_environment`
-* **Purpose**: Verify whether Python, Sionna RT, and Mitsuba are installed and operational, identifying the active computational backend.
-* **Inputs**: None.
-* **Returns**: Structured dictionary with `python_version`, `sionna_version`, `mitsuba_version`, `backend`, and `is_usable`.
+* **Purpose**: Inspect simulator availability, Mitsuba/Sionna versions, and computational backend.
+* **Input Schema**: None `{}`.
+* **Returns**:
+  ```json
+  {
+    "python_version": "3.11.15",
+    "sionna_version": "2.2.0",
+    "mitsuba_version": "3.9.1",
+    "backend": "llvm_ad_mono_polarized",
+    "is_usable": true
+  }
+  ```
 
 ### 2. `list_scenes`
 * **Purpose**: Discover 3D geometric propagation environments available to the simulation engine.
-* **Inputs**: None.
-* **Returns**: Catalog of scenes, including the canonical `simple_reflector` scene.
+* **Input Schema**: None `{}`.
+* **Returns**: Catalog of scenes including name, description, and default status (`simple_reflector`).
 
 ### 3. `run_simulation`
-* **Purpose**: Execute an NVIDIA Sionna RT ray-tracing simulation and return physical propagation metrics.
+* **Purpose**: Execute raw 3D electromagnetic ray tracing and return physical propagation metrics.
 * **Inputs**:
-  * `scene` (str, default `"simple_reflector"`): Geometric scene identifier.
-  * `frequency_hz` (float, default `3.5e9`): Radio carrier frequency in **Hertz** (Hz, NOT GHz; e.g. `3500000000.0` for 3.5 GHz). Must be > 0.
-  * `tx_position` (list of 3 floats, default `[0.0, -10.0, 5.0]`): 3D coordinates [x, y, z] in meters.
-  * `rx_position` (list of 3 floats, default `[0.0, 10.0, 5.0]`): 3D coordinates [x, y, z] in meters.
-  * `tx_power_dbm` (float, default `30.0`): Transmitter power in dBm (30 dBm = 1 Watt).
-* **Returns**: Structured propagation results:
-  * `num_paths`: Total paths resolved (e.g. 2 for simple_reflector).
-  * `total_path_loss`: Attenuation in dB (e.g. ~66.8 dB).
-  * `received_power`: Received power in dBm (e.g. ~-36.8 dBm).
-  * `path_delays`: Nanosecond delay per path (e.g. [66.71, 74.59] ns).
-  * `path_distances`: Propagation distance per path in meters.
-  * `path_gains`: Linear gain per path in dB.
-  * `interaction_types`: Physical propagation mechanism (Line of Sight, Specular Reflection, etc.).
+  * `scene` (string, default: `"simple_reflector"`)
+  * `frequency_hz` (float, in Hertz, > 0, default: `3.5e9`)
+  * `tx_position` (list of 3 floats `[x, y, z]` in meters, default: `[0.0, -10.0, 5.0]`)
+  * `rx_position` (list of 3 floats `[x, y, z]` in meters, default: `[0.0, 10.0, 5.0]`)
+  * `tx_power_dbm` (float, in dBm, default: `30.0`)
+* **Returns**: `simulation_id`, `num_paths`, `total_path_loss_db`, `received_power_dbm`, `delays_ns`, `path_distances_m`, `path_gains_db`, `interaction_types`.
+
+### 4. `analyze_simulation`
+* **Purpose**: Execute ray tracing AND perform physical wireless channel analysis.
+* **Inputs**: Same as `run_simulation`.
+* **Returns**: Composite dictionary containing `simulation_id`, `simulation` dictionary, and `analysis` dictionary:
+  * `strongest_path`: Index, interaction type, gain (dB), delay (ns), distance (m).
+  * `los_present`: Boolean indicating whether direct Line of Sight exists.
+  * `los_path_index`: 1-based path index of the LOS ray (or `null`).
+  * `rms_delay_spread_ns`: RMS delay spread in nanoseconds.
+  * `paths`: List of all paths with individual percentage power contribution (`power_contribution_percent`).
+
+### 5. `generate_visualization`
+* **Purpose**: Render publication-quality plots from completed simulations.
+* **Inputs**:
+  * `simulation_id` (string, required): Existing simulation identifier.
+  * `plot_type` (string, default: `"all"`): One of `"all"`, `"propagation_paths"`, `"received_power"`, `"cir"`, or `"comparison"`.
+  * `comparison_simulation_id` (string, optional): Required if `plot_type="comparison"`.
+* **Returns**: List of generated image file paths on disk.
 
 ---
 
-## Connecting MCP Clients
+## 5. Simulation Storage & Reproducibility
 
-The server runs locally over standard input/output (`stdio`).
+Every simulation executed through `run_simulation` or `analyze_simulation` is stored under a unique timestamped identifier (`sim_YYYYMMDD_HHMMSS_<hex>`):
 
-### Starting the Server Standalone
-
-```bash
-.venv/bin/python src/mcp_server.py
+```text
+results/<simulation_id>/
+├── config.json              # Transceiver geometry and simulation configuration
+├── metrics.json             # Simulation outputs and derived channel analysis
+├── propagation_paths.png    # 2D top-down ray tracing geometry and multipath trajectories
+├── received_power.png       # Link power budget and attenuation waterfall bar chart
+├── cir.png                  # Discrete Channel Impulse Response (CIR) stem plot
+└── comparison.png           # Dual-panel comparative visualization (Power/loss delta + CIR overlay)
 ```
 
-All diagnostic and error logs are directed strictly to `stderr`, keeping `stdout` completely clean for JSON-RPC MCP messages.
+Historical runs are never overwritten. A stored simulation can be inspected or re-visualized at any time using its `simulation_id`.
 
-### Claude Desktop Configuration
+---
 
-Add the following to your `claude_desktop_config.json`:
+## 6. How to Run & Verify
 
+### 1. Basic Standalone Simulation
+```bash
+python src/simulation.py
+```
+
+### 2. Connect via MCP AI Clients (Claude Desktop / Cursor)
+Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "sionna_rt": {
-      "command": "/home/sarvesh/Developer/Projects/Sionna_RT_MCP/.venv/bin/python",
+      "command": "/absolute/path/to/Sionna_RT_MCP/.venv/bin/python",
       "args": [
-        "/home/sarvesh/Developer/Projects/Sionna_RT_MCP/src/mcp_server.py"
+        "/absolute/path/to/Sionna_RT_MCP/src/mcp_server.py"
       ]
     }
   }
 }
 ```
 
----
+### 3. Run Automated Verification Scripts
+```bash
+# Verify environment runtime
+python scripts/verify_env.py
 
-## Verification & Automated Testing
+# Verify MCP client JSON-RPC tool calls
+python scripts/verify_mcp_client.py
 
-### 1. Run Automated Test Suite
+# Verify AI agent tool chaining & visualization
+python scripts/verify_agent.py
+```
 
+### 4. Run Complete Automated Pytest Suite (37 Tests)
 ```bash
 pytest -v
 ```
 
-All 12 automated unit and integration tests verify:
-* MCP server startup and tool registration (exactly 3 tools).
-* `check_environment` and `list_scenes` structured outputs.
-* `run_simulation` real ray-tracing execution and physical validity.
-* Clean error handling on invalid frequency, position, or scene without tracebacks.
-* End-to-end `stdio_client` and `ClientSession` communication.
-
-### 2. Run End-to-End MCP Client Verification Script
-
+### 5. End-to-End Natural-Language Demonstration
 ```bash
-python scripts/verify_mcp_client.py
+python scripts/agent_client.py "Compare propagation at 3.5 GHz and 28 GHz between TX [0, -10, 5] and RX [0, 10, 5]. Show the propagation paths and explain the difference."
 ```
 
-This script launches the MCP server in a subprocess over stdio, performs tool discovery, queries the environment, lists scenes, runs a full simulation, and asserts physical propagation accuracy against Sionna RT.
+---
+
+## 7. Known Limitations
+
+1. **Deterministic Parsing**: The AI client agent in `scripts/agent_client.py` uses deterministic regular expressions expecting bracketed coordinates (`[x, y, z]`) and explicit frequency units (`GHz`, `MHz`, `Hz`). Unstructured or colloquial language (e.g. "move the transmitter 10 meters north") is not supported.
+2. **Scene Catalog**: Ray tracing currently targets the canonical `simple_reflector` scene. Arbitrary polygonal meshes or complex city maps require importing additional OBJ/XML scene models.
+3. **CPU Execution on WSL**: When NVIDIA OptiX drivers (`libnvoptix.so.1`) are absent in container or WSL environments, Mitsuba automatically defaults to the CPU LLVM JIT backend (`llvm_ad_mono_polarized`). While physically accurate, execution is CPU-bound rather than hardware-accelerated.
+4. **Antenna Array Patterns**: Transceivers currently default to isotropic radiation patterns with vertical polarization (`iso`, `V`).

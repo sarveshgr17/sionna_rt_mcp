@@ -28,3 +28,4 @@ dist/
 # Logs and outputs
 *.log
 scratch/
+results/
