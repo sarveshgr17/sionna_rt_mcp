@@ -1,8 +1,8 @@
-# Sionna RT Minimal Simulation (MCP Foundation - Step 1)
+# Sionna RT Minimal Simulation (MCP Foundation - Step 2)
 
 This project establishes the foundation for building a **Model Context Protocol (MCP)** server that enables AI agents to configure, execute, and analyze **NVIDIA Sionna RT** radio wave simulations through natural language.
 
-In accordance with Step 1 of the development plan, this repository intentionally contains **no MCP code, no AI agent logic, no database, and no web UI**. It focuses strictly on a clean, verified, and minimal Python environment that runs genuine Sionna RT ray-tracing simulations.
+In accordance with Step 2 of the development plan, the simulation logic has been refactored into a reusable, modular **`SimulationEngine`** returning structured **`SimulationResult`** objects. Formatting and CLI execution are strictly decoupled. This repository contains **no MCP code yet, no database, and no web UI**.
 
 ---
 
@@ -28,11 +28,15 @@ Sionna_RT_MCP/
 ├── scripts/
 │   └── verify_env.py        # Environment diagnostic and sanity check script
 ├── src/
-│   ├── __init__.py          # Package initialization
+│   ├── __init__.py          # Package initialization & exports
 │   ├── config.py            # Centralized simulation configuration dataclass
-│   └── simulation.py        # Minimal end-to-end Sionna RT ray-tracing simulation
+│   ├── engine.py            # Reusable SimulationEngine executing ray tracing
+│   ├── formatter.py         # Standalone terminal output formatter
+│   ├── result.py            # Structured SimulationResult dataclass with to_dict()
+│   └── simulation.py        # CLI entrypoint and backward-compatible helper
 └── tests/
-    └── test_simulation.py   # Automated tests verifying simulation execution and metrics
+    ├── test_engine.py       # Tests for SimulationEngine, structured result, and JSON dict
+    └── test_simulation.py   # Tests for simulation physical validity and backward compatibility
 ```
 
 ---
@@ -46,54 +50,48 @@ Sionna_RT_MCP/
 
 ---
 
-## Installation
+## Programmatic Usage
 
-1. **Clone the repository and enter the directory**:
-   ```bash
-   git clone <repo-url>
-   cd Sionna_RT_MCP
-   ```
+Call the simulation engine programmatically:
 
-2. **Create and activate a Python 3.11 virtual environment**:
-   ```bash
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
+```python
+from src.config import SimulationConfig
+from src.engine import SimulationEngine
+from src.formatter import format_result
 
-3. **Install dependencies**:
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
+# 1. Configure simulation
+config = SimulationConfig(
+    scene="simple_reflector",
+    frequency=3.5e9,
+    tx_position=[0, -10, 5],
+    rx_position=[0, 10, 5],
+    tx_power_dbm=30,
+)
 
----
+# 2. Run simulation engine
+engine = SimulationEngine(config)
+result = engine.run()
 
-## Environment Verification
+# 3. Access structured properties
+print("Backend used:    ", result.backend)
+print("Paths found:     ", result.number_of_paths)
+print("Total path loss: ", result.total_path_loss, "dB")
+print("Received power:  ", result.received_power, "dBm")
+print("Path delays (ns):", result.path_delays)
+print("Path distances:  ", result.path_distances)
 
-Before running simulations, verify that Sionna RT and Mitsuba are correctly initialized:
+# 4. Convert to JSON dictionary (for future MCP tools)
+data_dict = result.to_dict()
 
-```bash
-python scripts/verify_env.py
-```
-
-Expected output:
-```text
-============================================================
-       Sionna RT Environment Verification
-============================================================
-[✓] Python: Python 3.11.x
-[✓] Sionna RT: sionna-rt v2.2.0
-    Active Backend: llvm_ad_mono_polarized (CPU LLVM)
-[✓] Scene Loading: Loaded built-in scene 'simple_reflector'
-============================================================
-RESULT: Environment is ready for Sionna RT simulations! ✓
+# 5. Format for terminal display (handled separately)
+print(format_result(result))
 ```
 
 ---
 
-## Running the Simulation
+## Running the Simulation via CLI
 
-Execute the minimal ray-tracing simulation:
+Execute the simulation directly from the terminal:
 
 ```bash
 python src/simulation.py
@@ -122,43 +120,6 @@ Propagation Results:
 
 ---
 
-## Understanding the Output
-
-* **Status Markers**:
-  * `Scene loaded`: Confirms the 3D Mitsuba geometry is loaded into memory.
-  * `Transmitter`: Transmitter added with configured position, antenna array, and power.
-  * `Receiver`: Receiver added with configured position and antenna array.
-  * `Frequency`: Carrier frequency applied to electromagnetic material properties.
-  * `Ray tracing`: Ray shooting and path solving completed.
-* **Metrics**:
-  * **Total Paths Found**: Number of rays connecting TX to RX above the threshold.
-  * **Total Path Loss (dB)**: $-10 \log_{10}\left(\sum_i |a_i|^2\right)$, measuring the attenuation between transmitter and receiver.
-  * **Received Power (dBm)**: $P_{\text{TX}} - \text{PathLoss}$.
-  * **Delay ($\tau$)**: Time taken for wavefront to travel from TX to RX. Distance is $c \times \tau$ (e.g., $66.71\text{ ns} \approx 20.0\text{ m}$, matching the geometric distance between $(0, -10, 5)$ and $(0, 10, 5)$).
-  * **Type**: Physical interaction along the path (`Line of Sight`, `Specular Reflection`, `Diffraction`, etc.).
-
----
-
-## Configuration
-
-All configuration is located in one obvious place: [`src/config.py`](src/config.py).
-
-```python
-from src.config import SimulationConfig
-
-config = SimulationConfig(
-    scene_name="simple_reflector",           # Built-in scene name or path to XML
-    frequency_hz=3.5e9,                      # 3.5 GHz
-    tx_position=(0.0, -10.0, 5.0),           # TX coordinates in meters [x, y, z]
-    tx_power_dbm=30.0,                       # Transmit power (30 dBm = 1 Watt)
-    rx_position=(0.0, 10.0, 5.0),            # RX coordinates in meters [x, y, z]
-    antenna_pattern="iso",                   # Antenna radiation pattern
-    antenna_polarization="V",                # Polarization ('V', 'H', etc.)
-)
-```
-
----
-
 ## Running Automated Tests
 
 Run the test suite using `pytest`:
@@ -168,7 +129,9 @@ pytest
 ```
 
 The tests verify:
-1. Simulation execution and result instantiation.
-2. Physical validity of propagation metrics (positive delay, positive path loss, power consistency).
-3. Response to modified parameters (e.g., 28 GHz mmWave frequency showing increased path loss).
-4. Terminal output formatting compliance.
+1. `SimulationEngine` runs and produces a structured `SimulationResult`.
+2. All core metrics (frequency, TX/RX positions, paths, delays, distances, gains, path loss, received power, backend) are present and accurate.
+3. Structured results cleanly serialize to JSON dictionaries via `to_dict()`.
+4. Standalone terminal formatter produces expected output without engine coupling.
+5. Physical validity of propagation metrics (positive delay, positive path loss, power consistency).
+6. Parameter responsiveness (e.g., 28 GHz mmWave frequency showing increased path loss).
