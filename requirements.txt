@@ -2,3 +2,4 @@
 sionna-rt>=2.2.0
 numpy>=1.26.0
 pytest>=8.0.0
+mcp>=2.0.0

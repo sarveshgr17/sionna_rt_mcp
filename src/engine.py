@@ -35,9 +35,6 @@ def ensure_mitsuba_variant() -> str:
     """
     import mitsuba as mi
 
-    if mi.variant() is not None:
-        return mi.variant()
-
     # Silence stderr during the OptiX probe to suppress missing symbol warnings in WSL
     stderr_fd = sys.stderr.fileno()
     saved_stderr = os.dup(stderr_fd)
@@ -45,6 +42,14 @@ def ensure_mitsuba_variant() -> str:
 
     try:
         os.dup2(devnull, stderr_fd)
+        # If variant is already set, verify it can actually instantiate a scene
+        if mi.variant() is not None:
+            try:
+                mi.load_dict({"type": "scene"})
+                return mi.variant()
+            except Exception:
+                pass
+
         try:
             mi.set_variant("cuda_ad_mono_polarized")
             mi.load_dict({"type": "scene"})
