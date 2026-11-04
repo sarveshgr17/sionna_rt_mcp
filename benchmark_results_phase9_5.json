@@ -1,0 +1,81 @@
+{
+  "platform": "Windows 11",
+  "backend": "llvm_ad_mono_polarized",
+  "results": [
+    {
+      "name": "Small Grid",
+      "cell_size_m": 5.0,
+      "samples_per_tx": 10000,
+      "grid_dimensions": [
+        5,
+        3
+      ],
+      "total_cells": 15,
+      "valid_cells": 15,
+      "zero_power_cells": 0,
+      "coverage_percentage": 100.0,
+      "min_rss_dbm": -37.92,
+      "mean_rss_dbm": -32.09,
+      "max_rss_dbm": -25.4,
+      "time_setup_s": 0.0,
+      "time_solver_s": 1.7033,
+      "time_extract_s": 0.0012,
+      "time_heatmaps_s": 0.4141,
+      "time_storage_s": 0.0207,
+      "time_total_s": 2.1393,
+      "mem_working_set_mb": 164.39,
+      "mem_peak_mb": 183.21,
+      "experiment_id": "experiment_20261101_135257_f0ea8baa"
+    },
+    {
+      "name": "Medium Grid",
+      "cell_size_m": 2.5,
+      "samples_per_tx": 10000,
+      "grid_dimensions": [
+        9,
+        5
+      ],
+      "total_cells": 45,
+      "valid_cells": 45,
+      "zero_power_cells": 0,
+      "coverage_percentage": 100.0,
+      "min_rss_dbm": -37.77,
+      "mean_rss_dbm": -31.49,
+      "max_rss_dbm": -24.57,
+      "time_setup_s": 0.0,
+      "time_solver_s": 0.0236,
+      "time_extract_s": 0.01,
+      "time_heatmaps_s": 0.3949,
+      "time_storage_s": 0.0207,
+      "time_total_s": 0.4493,
+      "mem_working_set_mb": 174.54,
+      "mem_peak_mb": 192.36,
+      "experiment_id": "experiment_20261101_135257_4d23efa3"
+    },
+    {
+      "name": "Fine Grid",
+      "cell_size_m": 1.0,
+      "samples_per_tx": 20000,
+      "grid_dimensions": [
+        21,
+        11
+      ],
+      "total_cells": 231,
+      "valid_cells": 230,
+      "zero_power_cells": 1,
+      "coverage_percentage": 99.57,
+      "min_rss_dbm": -39.74,
+      "mean_rss_dbm": -31.15,
+      "max_rss_dbm": -24.13,
+      "time_setup_s": 0.0,
+      "time_solver_s": 0.0238,
+      "time_extract_s": 0.0096,
+      "time_heatmaps_s": 0.379,
+      "time_storage_s": 0.0223,
+      "time_total_s": 0.4347,
+      "mem_working_set_mb": 184.18,
+      "mem_peak_mb": 201.33,
+      "experiment_id": "experiment_20261101_135257_37c1758a"
+    }
+  ]
+}
