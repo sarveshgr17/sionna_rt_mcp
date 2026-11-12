@@ -83,6 +83,17 @@ For complete architectural details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTU
 
 ```text
 sionna_rt_mcp-main/
+├── adapter/                                 # Lightweight Starlette Backend Adapter (Port 8080)
+│   └── server.py                            # Bridges React frontend to MCP Server + serves artifacts
+├── frontend/                                # Modern React 19 + TypeScript + Vite UI
+│   ├── src/
+│   │   ├── components/                      # UI components (Header, Sidebar, 3D Visualizer)
+│   │   ├── pages/                           # Application screens (Overview, P2P, RadioMaps, etc.)
+│   │   ├── services/                        # Typed MCP client and API service layer
+│   │   ├── hooks/                           # React Query hooks for simulation and telemetry
+│   │   └── types/                           # Strict TypeScript schemas for all 7 tools
+│   ├── package.json
+│   └── vite.config.ts
 ├── docs/                                    # Technical documentation
 │   ├── ARCHITECTURE.md                      # System architecture and data flow diagrams
 │   ├── WINDOWS_SETUP.md                     # Complete Windows 11 installation guide
@@ -95,6 +106,7 @@ sionna_rt_mcp-main/
 │       ├── radio_map_data.npz               # Compressed numerical arrays
 │       ├── rss_heatmap.png                  # RSS coverage heatmap
 │       └── path_gain_heatmap.png            # Path gain heatmap
+├── start_sionna_lab.py                      # One-click unified workstation launcher
 ├── scripts/                                 # Verification and utility scripts
 │   ├── benchmark_performance.py             # Performance and RAM benchmarking tool
 │   ├── verify_env.py                        # Environment sanity check script
@@ -146,7 +158,69 @@ sionna_rt_mcp-main/
 
 ---
 
-## 6. Windows Setup Instructions
+## 6. Sionna Lab — Web Simulation Workstation & UI Integration
+
+**Sionna Lab** provides a scientific engineering workstation interface faithfully implemented from the Google Stitch reference designs. It connects directly to the canonical NVIDIA Sionna RT MCP server via a lightweight backend adapter.
+
+### 6.1 Workstation Architecture
+
+```mermaid
+flowchart LR
+    Browser["React 19 + TypeScript SPA\n(Vite • Tailwind CSS • Three.js)"] <-->|"REST / SSE / Artifacts\n(Port 8080)"| Adapter["Backend Adapter\n(Starlette + Uvicorn)"]
+    Adapter <-->|"Official Python MCP SDK\nStreamable HTTP (Port 8000)"| MCP["NVIDIA Sionna RT MCP Server\n(server.py)"]
+    MCP <-->|"3D Ray Tracing / EM Field"| Engine["Sionna RT & Mitsuba 3\n(CPU LLVM / GPU OptiX)"]
+```
+
+### 6.2 Application Screens
+1. **Simulation Workspace Overview (`/`)**: Real-time telemetry archive, active scene geometry, computational engine status, launchpads, daemon protocol telemetry, and recent experiments archive.
+2. **Point-to-Point Ray Tracing Workbench (`/p2p`)**: 3D Cartesian Isometric Three.js visualizer with interactive camera modes (Isometric, Top XY, Side XZ), PEC reflector plane, TX/RX markers, orange LOS ray and cyan specular ray paths. Metric strip (Path loss, Received power, Delay spread, LOS status), CIR stem plot, and Friis equation verification.
+3. **2D Radio Coverage Maps (`/radio-maps`)**: Spatial planar evaluation grid at user height ($Z=1.5\text{ m}$), configurable bounding boxes and resolutions, interactive toggle between Received Signal Strength (RSS dBm) and Path Gain (dB), and statistical summaries.
+4. **Experiment Library (`/experiments`)**: Deep search and frequency band filters (Sub-6 GHz vs mmWave) across saved simulation runs, with detail drawers inspecting metadata, array shapes, and rendered PNG artifacts.
+5. **Spatial Comparison Suite (`/compare`)**: Side-by-side Experiment A (Baseline) and Experiment B (Modified) selection, computing spatial delta ($B - A$) centered at 0 dB, diverging difference heatmaps, standard deviation, and spatial Pearson correlation.
+6. **System Diagnostics & MCP Inspector (`/system`)**: Real-time daemon health check, tool catalog inspector, and direct JSON-RPC execution dispatcher.
+
+### 6.3 Running the Workstation
+
+#### One-Click Unified Launcher:
+```bash
+./start.sh
+# or
+python3 start_sionna_lab.py
+```
+This single command automatically spins up all 3 services:
+- **MCP Server:** `http://localhost:8000/mcp` (Streamable HTTP)
+- **Backend Adapter:** `http://localhost:8080` (Starlette REST & Artifacts)
+- **Vite Workstation UI:** `http://localhost:5173` (React 19 + Three.js)
+
+*(All services bind to `0.0.0.0` so you can connect from Windows, WSL2, or LAN via `http://localhost:5173` or your host IP).*
+
+#### Running Individual Services:
+1. **Start MCP Server**:
+   ```bash
+   source .venv/bin/activate
+   python server.py --transport streamable-http --host 0.0.0.0 --port 8000
+   ```
+2. **Start Backend Adapter**:
+   ```bash
+   source .venv/bin/activate
+   python adapter/server.py
+   ```
+3. **Start Vite Frontend**:
+   ```bash
+   cd frontend
+   bun run dev
+   # or: npm run dev
+   ```
+   ```
+3. **Start Frontend Development Server**:
+   ```bash
+   cd frontend
+   bun run dev   # or npm run dev
+   ```
+
+---
+
+## 7. Windows Setup Instructions
 
 ### 6.1 Create and Activate Virtual Environment
 ```powershell

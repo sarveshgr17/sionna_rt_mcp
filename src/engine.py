@@ -178,7 +178,7 @@ class SimulationEngine:
 
         # 6. Run ray-tracing path solver
         solver = PathSolver()
-        paths = solver(scene)
+        paths = solver(scene, max_depth=getattr(active_config, "max_depth", 2))
 
         # 7. Extract propagation metrics
         return self._extract_results(paths, active_config, backend_variant)

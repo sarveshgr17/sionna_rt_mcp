@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import json
+import math
 import os
 from typing import Any, Dict, List, Optional
 import uuid
@@ -14,6 +15,19 @@ except ImportError:
     from analyzer import AnalysisResult
     from config import SimulationConfig
     from result import SimulationResult
+
+
+def sanitize_floats(obj: Any) -> Any:
+    """Recursively convert float('inf'), float('-inf'), and NaN to None for JSON compliance."""
+    if isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [sanitize_floats(item) for item in obj]
+    return obj
 
 
 class SimulationStorage:
@@ -77,6 +91,8 @@ class SimulationStorage:
             "simulation": result.to_dict(),
             "analysis": analysis.to_dict() if analysis else None,
         }
+        # Sanitize infinity and NaN before serialization
+        metrics_data = sanitize_floats(metrics_data)
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics_data, f, indent=2)
 

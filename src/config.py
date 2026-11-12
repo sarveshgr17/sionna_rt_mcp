@@ -58,6 +58,9 @@ class SimulationConfig:
     vertical_spacing: float = 0.5  # In wavelengths
     horizontal_spacing: float = 0.5  # In wavelengths
 
+    # Solver parameters
+    max_depth: int = 2
+
     # Extended antenna parameters
     antenna_type: Optional[str] = None
     tx_antenna_type: Optional[str] = None

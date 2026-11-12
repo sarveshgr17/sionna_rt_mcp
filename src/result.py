@@ -1,6 +1,7 @@
 """Structured result data models for Sionna RT simulation."""
 
 from dataclasses import dataclass, field
+import math
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -84,8 +85,8 @@ class SimulationResult:
             "backend": self.backend_variant,
             "backend_variant": self.backend_variant,
             "num_paths": int(self.num_paths),
-            "total_path_loss_db": float(self.path_loss_db),
-            "received_power_dbm": float(self.rx_power_dbm),
+            "total_path_loss_db": None if math.isinf(self.path_loss_db) or math.isnan(self.path_loss_db) else float(self.path_loss_db),
+            "received_power_dbm": None if math.isinf(self.rx_power_dbm) or math.isnan(self.rx_power_dbm) else float(self.rx_power_dbm),
             "min_delay_ns": float(self.min_delay_ns),
             "max_delay_ns": float(self.max_delay_ns),
             "delays_ns": [float(d) for d in self.delays_ns],

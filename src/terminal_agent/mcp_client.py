@@ -10,7 +10,13 @@ import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        httpx = None
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
@@ -62,7 +68,7 @@ class MCPDirectClient:
             logger.info("Connected to MCP server at %s. Discovered %d tools.", self.server_url, len(self.discovered_tools))
             return self.discovered_tools
 
-        except (httpx.ConnectError, ConnectionRefusedError, OSError) as exc:
+        except (getattr(httpx, "ConnectError", OSError), ConnectionRefusedError, OSError) as exc:
             self.is_connected = False
             raise MCPClientError(
                 f"Cannot connect to MCP server at {self.server_url}.\n"

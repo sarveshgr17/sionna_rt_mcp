@@ -211,19 +211,54 @@ def create_mcp_server(
     streamable_http_path: str = "/mcp",
 ) -> FastMCP:
     """Create and configure the Sionna RT MCP server with registered tools."""
-    server = FastMCP(
-        name="sionna-rt-mcp",
-        instructions=(
-            "NVIDIA Sionna RT Radio Ray-Tracing Simulator MCP Server. "
-            "Provides tools to verify simulator availability, discover geometric "
-            "scenes, execute point-to-point physical 3D simulations, generate 2D spatial "
-            "radio coverage maps, persist simulation experiments, and perform comparative "
-            "evaluations with spatial difference heatmaps."
-        ),
-        host=host,
-        port=port,
-        streamable_http_path=streamable_http_path,
-    )
+    try:
+        server = FastMCP(
+            name="sionna-rt-mcp",
+            instructions=(
+                "NVIDIA Sionna RT Radio Ray-Tracing Simulator MCP Server. "
+                "Provides tools to verify simulator availability, discover geometric "
+                "scenes, execute point-to-point physical 3D simulations, generate 2D spatial "
+                "radio coverage maps, persist simulation experiments, and perform comparative "
+                "evaluations with spatial difference heatmaps."
+            ),
+        )
+    except TypeError:
+        server = FastMCP(
+            name="sionna-rt-mcp",
+            instructions=(
+                "NVIDIA Sionna RT Radio Ray-Tracing Simulator MCP Server. "
+                "Provides tools to verify simulator availability, discover geometric "
+                "scenes, execute point-to-point physical 3D simulations, generate 2D spatial "
+                "radio coverage maps, persist simulation experiments, and perform comparative "
+                "evaluations with spatial difference heatmaps."
+            ),
+            host=host,
+            port=port,
+            streamable_http_path=streamable_http_path,
+        )
+
+    if hasattr(server, "settings"):
+        try:
+            server.settings.__class__.__setattr__ = object.__setattr__
+        except Exception:
+            pass
+        try:
+            object.__setattr__(server.settings, "host", host)
+            object.__setattr__(server.settings, "port", port)
+            object.__setattr__(server.settings, "streamable_http_path", streamable_http_path)
+        except Exception:
+            pass
+
+    orig_run = server.run
+
+    def _run_with_defaults(transport: str = "stdio", **kwargs: Any) -> None:
+        if transport in ("streamable-http", "sse"):
+            kwargs.setdefault("host", getattr(server.settings, "host", host))
+            kwargs.setdefault("port", getattr(server.settings, "port", port))
+            kwargs.setdefault("streamable_http_path", getattr(server.settings, "streamable_http_path", streamable_http_path))
+        return orig_run(transport=transport, **kwargs)
+
+    server.run = _run_with_defaults
 
     # =========================================================================
     # 1. Point-to-Point Tools (Existing)
@@ -381,6 +416,10 @@ def create_mcp_server(
             float,
             Field(description="Vertical antenna spacing in carrier wavelengths (default: 0.5)."),
         ] = 0.5,
+        max_depth: Annotated[
+            int,
+            Field(description="Maximum ray bounce depth (>= 1, default: 2)."),
+        ] = 2,
         tx_antenna_type: Annotated[
             Optional[str],
             Field(
@@ -557,6 +596,7 @@ def create_mcp_server(
                 num_cols=r_cols,
                 horizontal_spacing=h_spacing,
                 vertical_spacing=v_spacing,
+                max_depth=int(max_depth) if max_depth and int(max_depth) >= 1 else 2,
                 tx_antenna_type=tx_antenna_type,
                 rx_antenna_type=rx_antenna_type,
                 tx_orientation_deg=tx_orient,

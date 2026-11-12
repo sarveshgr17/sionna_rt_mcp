@@ -68,7 +68,8 @@ class TestHTTPTransport(unittest.TestCase):
     def test_01_http_handshake_and_protocol_initialization(self):
         """Verify client initializes MCP session over Streamable HTTP."""
         async def run_test():
-            async with streamable_http_client(self.url) as (read_stream, write_stream, _):
+            async with streamable_http_client(self.url) as streams:
+                read_stream, write_stream = streams[0], streams[1]
                 async with ClientSession(read_stream, write_stream) as session:
                     init_res = await session.initialize()
                     proto_ver = getattr(
@@ -81,7 +82,8 @@ class TestHTTPTransport(unittest.TestCase):
     def test_02_all_seven_tools_discovered_over_http(self):
         """Verify all seven tools are discoverable over Streamable HTTP transport."""
         async def run_test():
-            async with streamable_http_client(self.url) as (read_stream, write_stream, _):
+            async with streamable_http_client(self.url) as streams:
+                read_stream, write_stream = streams[0], streams[1]
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     tools_result = await session.list_tools()
@@ -105,13 +107,15 @@ class TestHTTPTransport(unittest.TestCase):
     def test_03_execute_tools_over_http(self):
         """Verify executing tools over Streamable HTTP returns structured outputs."""
         async def run_test():
-            async with streamable_http_client(self.url) as (read_stream, write_stream, _):
+            async with streamable_http_client(self.url) as streams:
+                read_stream, write_stream = streams[0], streams[1]
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
 
                     # 1. Call check_environment
                     env_res = await session.call_tool("check_environment", {})
-                    self.assertFalse(bool(env_res.isError))
+                    is_err = getattr(env_res, "isError", getattr(env_res, "is_error", False))
+                    self.assertFalse(bool(is_err))
                     self.assertTrue(len(env_res.content) > 0)
                     env_data = json.loads(env_res.content[0].text)
                     self.assertIn("python_version", env_data)
@@ -120,7 +124,8 @@ class TestHTTPTransport(unittest.TestCase):
 
                     # 2. Call list_scenes
                     scenes_res = await session.call_tool("list_scenes", {})
-                    self.assertFalse(bool(scenes_res.isError))
+                    is_err_s = getattr(scenes_res, "isError", getattr(scenes_res, "is_error", False))
+                    self.assertFalse(bool(is_err_s))
                     scenes_data = json.loads(scenes_res.content[0].text)
                     self.assertIn("scenes", scenes_data)
                     self.assertGreaterEqual(scenes_data["count"], 1)

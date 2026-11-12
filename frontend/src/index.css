@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FBF9F5;
+    color: #1E293B;
+  }
+}
+
+/* Scientific Industrial Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1EDE4;
+}
+::-webkit-scrollbar-thumb {
+  background: #D5CEBF;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8B0A0;
+}
+
+/* Technical Label & Monospace Badges */
+.badge-tech {
+  @apply font-mono text-[10px] tracking-wider uppercase px-1.5 py-0.5 rounded border border-border bg-parchment-subtle text-slate-700 font-medium;
+}
+
+.badge-green {
+  @apply font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 font-semibold inline-flex items-center gap-1.5;
+}
+
+.card-technical {
+  @apply bg-white border border-border rounded-md shadow-technical;
+}
+
