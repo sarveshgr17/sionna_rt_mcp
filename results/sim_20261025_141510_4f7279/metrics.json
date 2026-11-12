@@ -1,0 +1,59 @@
+{
+  "simulation_id": "sim_20261025_141510_4f7279",
+  "created_at": "2026-10-25T14:15:10.388798+00:00",
+  "simulation": {
+    "scene_name": "simple_reflector",
+    "frequency_hz": 3500000000.0,
+    "tx_position": [
+      0.0,
+      -10.0,
+      5.0
+    ],
+    "tx_power_dbm": 30.0,
+    "rx_position": [
+      0.0,
+      10.0,
+      5.0
+    ],
+    "backend": "llvm_ad_mono_polarized",
+    "backend_variant": "llvm_ad_mono_polarized",
+    "num_paths": 2,
+    "total_path_loss_db": 66.79872245114852,
+    "received_power_dbm": -36.79872245114852,
+    "min_delay_ns": 66.71281433105469,
+    "max_delay_ns": 74.58719635009766,
+    "delays_ns": [
+      66.71281433105469,
+      74.58719635009766
+    ],
+    "path_distances_m": [
+      19.999998588404512,
+      22.360678929124404
+    ],
+    "path_gains_db": [
+      -69.34974337179528,
+      -70.3226790683992
+    ],
+    "interaction_types": [
+      "Line of Sight (LOS)",
+      "Specular Reflection"
+    ],
+    "frequency": 3500000000.0,
+    "number_of_paths": 2,
+    "path_delays": [
+      66.71281433105469,
+      74.58719635009766
+    ],
+    "path_distances": [
+      19.999998588404512,
+      22.360678929124404
+    ],
+    "path_gains": [
+      -69.34974337179528,
+      -70.3226790683992
+    ],
+    "total_path_loss": 66.79872245114852,
+    "received_power": -36.79872245114852
+  },
+  "analysis": null
+}

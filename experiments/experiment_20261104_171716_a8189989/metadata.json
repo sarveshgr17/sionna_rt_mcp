@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "experiment_20261104_171716_a8189989",
+  "experiment_name": "validation_run_40dbm",
+  "created_at": "2026-11-04T17:17:16.254537+00:00",
+  "simulation_timestamp": "2026-11-04T17:17:15.832222+00:00",
+  "scene_name": "simple_reflector",
+  "frequency_hz": 3500000000.0,
+  "tx_position": [
+    0.0,
+    -10.0,
+    5.0
+  ],
+  "tx_power_dbm": 40.0,
+  "tx_orientation_deg": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "antenna_type": "isotropic",
+  "antenna_pattern": "iso",
+  "polarization": "V",
+  "measurement_height": 1.5,
+  "region_bounds": [
+    -5.5,
+    5.5,
+    -15.0,
+    5.5
+  ],
+  "cell_size": [
+    5.0,
+    5.0
+  ],
+  "grid_dimensions": [
+    5,
+    3
+  ],
+  "solver_parameters": {
+    "samples_per_tx": 10000,
+    "max_depth": 3,
+    "seed": null,
+    "los": true,
+    "specular_reflection": true,
+    "diffraction": true,
+    "scattering": false
+  },
+  "backend_variant": "llvm_ad_mono_polarized",
+  "total_cells": 15,
+  "valid_cells": 15,
+  "zero_power_cells": 0,
+  "coverage_percentage": 100.0,
+  "min_rss_dbm": -27.916702270507812,
+  "mean_rss_dbm": -22.085267130533854,
+  "max_rss_dbm": -15.399429321289062,
+  "summary_metrics": {
+    "total_cells": 15,
+    "valid_cells": 15,
+    "zero_power_cells": 0,
+    "coverage_percentage": 100.0,
+    "min_rss_dbm": -27.916702270507812,
+    "mean_rss_dbm": -22.085267130533854,
+    "max_rss_dbm": -15.399429321289062
+  },
+  "array_shapes": {
+    "path_gain_linear": [
+      5,
+      3
+    ],
+    "path_gain_db": [
+      5,
+      3
+    ],
+    "rss_watts": [
+      5,
+      3
+    ],
+    "rss_dbm": [
+      5,
+      3
+    ],
+    "cell_centers": [
+      5,
+      3,
+      3
+    ],
+    "x_coordinates": [
+      3
+    ],
+    "y_coordinates": [
+      5
+    ]
+  },
+  "array_names": [
+    "path_gain_linear",
+    "path_gain_db",
+    "rss_watts",
+    "rss_dbm",
+    "cell_centers",
+    "x_coordinates",
+    "y_coordinates"
+  ],
+  "heatmaps": {
+    "rss_heatmap": {
+      "filename": "rss_heatmap.png",
+      "available": true
+    },
+    "path_gain_heatmap": {
+      "filename": "path_gain_heatmap.png",
+      "available": true
+    }
+  }
+}

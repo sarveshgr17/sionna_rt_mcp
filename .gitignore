@@ -1,5 +1,6 @@
 # Python virtual environment
 .venv/
+.venv*/
 venv/
 ENV/
 env/
@@ -28,4 +29,3 @@ dist/
 # Logs and outputs
 *.log
 scratch/
-results/

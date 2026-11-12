@@ -8,7 +8,16 @@ Verifies:
 """
 
 import sys
+import os
 from typing import Tuple
+
+# Ensure utf-8 stdout on Windows terminals
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 
 def check_python_version() -> Tuple[bool, str]:

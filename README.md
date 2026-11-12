@@ -1,222 +1,348 @@
-# Sionna RT Model Context Protocol (MCP) Server
+# NVIDIA Sionna RT Model Context Protocol (MCP) Server
 
-An end-to-end bridge connecting **LLM AI agents** to **NVIDIA Sionna RT** through the **Model Context Protocol (MCP)**. This enables AI systems to autonomously discover propagation tools, configure radio frequency (RF) simulations, execute 3D ray tracing, derive physical wireless channel metrics, generate publication-quality visualizations, and interpret multi-frequency propagation phenomena.
+[![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-31010/)
+[![Sionna RT](https://img.shields.io/badge/Sionna%20RT-2.2.0-green.svg)](https://developer.nvidia.com/sionna)
+[![Mitsuba](https://img.shields.io/badge/Mitsuba-3.9.1-orange.svg)](https://www.mitsuba-renderer.org/)
+[![MCP](https://img.shields.io/badge/MCP-1.30.0-purple.svg)](https://modelcontextprotocol.io/)
+[![Tests](https://img.shields.io/badge/tests-194%20passed-brightgreen.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%2011-blue.svg)]()
 
----
-
-## 1. Project Purpose & Problem Solved
-
-Modern AI assistants excel at natural language reasoning and high-level problem solving, but lack direct access to physical radio-frequency propagation engines. Conversely, RF simulation frameworks like NVIDIA Sionna RT provide state-of-the-art ray tracing, but require specialized Python scripts and Mitsuba rendering pipelines.
-
-**This project solves that interface barrier by providing:**
-1. A **standardized Model Context Protocol (MCP) server** exposing deterministic radio ray-tracing capabilities over standard input/output (`stdio` JSON-RPC).
-2. A **simulation engine** abstracting Mitsuba 3 backend selection (GPU NVIDIA OptiX or CPU LLVM JIT fallback).
-3. A **wireless channel analysis layer** calculating derived RF metrics (strongest path, Line of Sight detection, RMS delay spread, power contribution breakdown).
-4. A **visualization layer** generating top-down 2D ray trajectories, power waterfall budgets, Channel Impulse Response (CIR) stem plots, and comparative visualizations.
-5. An **autonomous AI agent client** that dynamically chains tools to answer complex multi-frequency tasks (e.g., comparing 3.5 GHz mid-band vs 28.0 GHz millimeter-wave propagation).
+A production-grade **Model Context Protocol (MCP)** server that enables AI clients (such as Claude Desktop, Cursor, or autonomous LLM agents) to configure, execute, analyze, and compare **NVIDIA Sionna RT** wireless ray-tracing simulations through standardized tools.
 
 ---
 
-## 2. System Architecture
+## 1. Project Overview
 
-The project adheres to a strict, layered architecture with clean separation of concerns:
+**NVIDIA Sionna RT** is an industrial-strength, differentiable ray tracer designed for radio wave propagation simulation in complex 3D environments. This project exposes Sionna RT's core capabilities via the official Model Context Protocol (MCP), enabling AI systems to:
+- Perform point-to-point multipath propagation simulations.
+- Generate 2D spatial radio coverage maps (heatmaps) over continuous evaluation surfaces.
+- Store, catalog, and query simulation experiments on the local filesystem.
+- Compare pairs of experiments using spatial difference analysis ($B - A$ convention).
+
+The server operates over standard input/output (`stdio`) using JSON-RPC 2.0 messages.
+
+---
+
+## 2. Main Capabilities
+
+- **Point-to-Point Ray Tracing:** Resolves multipath propagation components (Line of Sight, Specular Reflections, Diffuse Scattering, Diffraction), path delays, geometric distances, and per-path gains.
+- **2D Spatial Radio Maps:** Evaluates planar coverage at arbitrary receiver heights using Sionna RT's native `RadioMapSolver`. Supports AUTO (scene-derived) and MANUAL bounding boxes.
+- **Publication-Quality Heatmaps:** Renders high-resolution (150 DPI) Received Signal Strength (RSS in dBm) and Path Gain (dB) visual heatmaps with neutral gray masking for unreachable cells.
+- **Reproducible Scaling:** Deterministic random seeds produce bit-identical results ($\Delta = 0.0000$ dB). Transmit power scaling ($+10$ dBm) produces an exact $+10.0000$ dB RSS shift and $0.0000$ dB path gain shift.
+- **Filesystem Experiment Store:** Atomic persistence of metadata JSON, compressed NPZ float64 numerical arrays, and PNG heatmaps with path traversal protection.
+- **Spatial Difference Analysis:** Computes spatial differences ($B - A$) between compatible experiments, masking unreached cells and rendering centered diverging difference heatmaps.
+- **High-Performance CPU LLVM JIT:** Executes on native Windows 11 via Mitsuba CPU LLVM (`llvm_ad_mono_polarized`), achieving warm solver runtimes under **25 milliseconds**.
+
+---
+
+## 3. Architecture Overview
+
+The system strictly enforces layered separation of concerns:
+
+```mermaid
+flowchart TD
+    Client["AI / MCP Client\n(Claude Desktop / Cursor)"]
+    Transport["stdio Transport\n(JSON-RPC 2.0)"]
+    Server["MCP Server (src/mcp_server.py)\n(Validation, Routing & Tool Registry)"]
+    
+    subgraph Engines["Simulation Engines"]
+        P2P["SimulationEngine (src/engine.py)\nPoint-to-Point PathSolver"]
+        RM["RadioMapEngine (src/radio_map_engine.py)\n2D RadioMapSolver"]
+    end
+    
+    subgraph Stack["Sionna RT & Mitsuba Stack"]
+        Sionna["NVIDIA Sionna RT 2.2.0"]
+        Mitsuba["Mitsuba 3.9.1 / Dr.Jit 1.5.0"]
+        LLVM["CPU LLVM Backend (llvm_ad_mono_polarized)\nIsolated LLVM-C.dll (LLVM 18.1.6)"]
+    end
+    
+    subgraph Storage["Experiment Store (experiments/)"]
+        Store["ExperimentStore (src/experiment_store.py)"]
+        Comp["ExperimentComparator (src/experiment_comparator.py)"]
+    end
+
+    Client <--> Transport
+    Transport <--> Server
+    Server --> P2P
+    Server --> RM
+    P2P --> Sionna
+    RM --> Sionna
+    Sionna --> Mitsuba
+    Mitsuba --> LLVM
+    RM --> Store
+    Server --> Store
+    Server --> Comp
+    Comp --> Store
+```
+
+For complete architectural details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## 4. Repository Structure
 
 ```text
-Natural-Language Task (e.g. "Compare 3.5 GHz and 28 GHz between TX and RX")
-       │
-       ▼
-AI Agent Client (`scripts/agent_client.py`)
-       │  • Task parsing (regex parameter extraction)
-       │  • Tool discovery & multi-step execution planning
-       │  • stdio JSON-RPC transport
-       ▼
-MCP Server (`src/mcp_server.py`)
-       │  • Strict Pydantic input validation & schema enforcement
-       │  • Standardized ToolError generation
-       │  • Clean routing to backend components
-       ▼
-SimulationEngine (`src/engine.py`)
-       │  • Mitsuba backend variant management (CUDA OptiX or CPU LLVM)
-       │  • Transceiver placement & antenna array setup
-       │  • Path solving & ray extraction
-       ▼
-NVIDIA Sionna RT (`sionna.rt`) & Mitsuba 3 (`mitsuba`)
-       │  • 3D electromagnetic ray tracing
-       ▼
-SimulationResult (`src/result.py`)
-       │  • Immutable container for raw propagation data
-       ▼
-ChannelAnalyzer (`src/analyzer.py`)
-       │  • RMS delay spread calculation
-       │  • Strongest path identification
-       │  • Line-of-Sight (LOS) vs Non-Line-of-Sight (NLOS) detection
-       │  • Path percentage power contributions
-       ▼
-SimulationStorage (`src/storage.py`) & Visualizer (`src/visualizer.py`)
-       │  • Unique timestamped storage (`results/<simulation_id>/`)
-       │  • 2D propagation paths, power budget, CIR, and comparison plots
-       ▼
-AI-Readable Response & Human Explanation
+sionna_rt_mcp-main/
+├── docs/                                    # Technical documentation
+│   ├── ARCHITECTURE.md                      # System architecture and data flow diagrams
+│   ├── WINDOWS_SETUP.md                     # Complete Windows 11 installation guide
+│   ├── MCP_TOOLS_REFERENCE.md               # API reference for all 7 MCP tools
+│   └── EXPERIMENT_STORAGE.md                # Filesystem persistence and artifact schema
+├── experiments/                             # Local experiment persistence directory
+│   ├── comparisons/                         # Generated difference heatmaps (*.png)
+│   └── experiment_<timestamp>_<uuid>/       # Stored experiment folders
+│       ├── metadata.json                    # Simulation configuration and metrics
+│       ├── radio_map_data.npz               # Compressed numerical arrays
+│       ├── rss_heatmap.png                  # RSS coverage heatmap
+│       └── path_gain_heatmap.png            # Path gain heatmap
+├── scripts/                                 # Verification and utility scripts
+│   ├── benchmark_performance.py             # Performance and RAM benchmarking tool
+│   ├── verify_env.py                        # Environment sanity check script
+│   ├── verify_mcp_client.py                 # Point-to-point MCP client verification
+│   └── verify_radio_map_workflow.py         # Full radio-map MCP workflow verification
+├── src/                                     # Core package implementation
+│   ├── __init__.py                          # Package exports
+│   ├── config.py                            # Point-to-point SimulationConfig dataclass
+│   ├── engine.py                            # Point-to-point SimulationEngine
+│   ├── experiment_comparator.py             # Spatial difference analysis and comparison
+│   ├── experiment_store.py                  # Atomic filesystem experiment storage
+│   ├── formatter.py                         # Point-to-point terminal formatting
+│   ├── mcp_server.py                        # FastMCP server with 7 registered tools
+│   ├── radio_map_config.py                  # RadioMapConfig dataclass and validation
+│   ├── radio_map_engine.py                  # RadioMapEngine executing RadioMapSolver
+│   ├── radio_map_formatter.py               # Heatmap generation and summary formatting
+│   ├── radio_map_result.py                  # RadioMapResult numerical extraction
+│   ├── result.py                            # SimulationResult dataclass
+│   └── simulation.py                        # Standalone point-to-point CLI entrypoint
+├── tests/                                   # Pytest test suite (194 tests, 20 subtests)
+│   ├── test_engine.py                       # Point-to-point engine tests
+│   ├── test_experiment_comparator.py        # Spatial comparison tests
+│   ├── test_experiment_store.py             # Storage and retrieval tests
+│   ├── test_import_identity.py              # Canonical import identity tests
+│   ├── test_mcp.py                          # MCP tool registration and schema tests
+│   ├── test_phase8_e2e.py                   # End-to-end integration tests
+│   ├── test_phase_9_5_stability.py          # Stability, edge-case, and boundary tests
+│   ├── test_radio_map_config.py             # Radio map config validation tests
+│   ├── test_radio_map_engine.py             # Radio map engine tests
+│   ├── test_radio_map_formatter.py          # Heatmap rendering tests
+│   ├── test_radio_map_result.py             # Result extraction tests
+│   └── test_simulation.py                   # Simulation CLI tests
+├── pytest.ini                               # Pytest configuration
+├── requirements.txt                         # Python dependencies
+└── README.md                                # Project documentation
 ```
 
 ---
 
-## 3. Environment Requirements & Installation
+## 5. Prerequisites
 
-### Requirements
-* **Operating System**: Linux (Ubuntu 20.04/22.04 LTS or WSL2 on Windows)
-* **Python**: Python 3.10 or 3.11 (tested on 3.11.15)
-* **Hardware/Accelerators**:
-  * **GPU (Recommended)**: NVIDIA GPU with CUDA and OptiX support (`libnvoptix.so.1`)
-  * **CPU (Fully Supported Fallback)**: Multi-core x86_64 CPU running LLVM JIT (`llvm_ad_mono_polarized`)
+- **Operating System:** Windows 11 64-bit.
+- **Python:** CPython 3.10.10 64-bit ([python.org](https://www.python.org/downloads/release/python-31010/)).
+- **Processor:** Intel Core i5/i7/i9 (10th Gen+) or AMD Ryzen (3000+) supporting AVX2.
+- **RAM:** 16 GB recommended.
 
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repo-url>
-   cd Sionna_RT_MCP
-   ```
-
-2. **Create and activate a virtual environment**:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-4. **Verify environment health**:
-   ```bash
-   python scripts/verify_env.py
-   ```
+> [!WARNING]
+> Do **not** use Python 3.14+; binary wheels for `mitsuba` and `drjit` are currently unavailable for Python 3.14 on Windows.
 
 ---
 
-## 4. MCP Tools Catalog
+## 6. Windows Setup Instructions
 
-The MCP server exposes 5 deterministic tools over `stdio`:
-
-### 1. `check_environment`
-* **Purpose**: Inspect simulator availability, Mitsuba/Sionna versions, and computational backend.
-* **Input Schema**: None `{}`.
-* **Returns**:
-  ```json
-  {
-    "python_version": "3.11.15",
-    "sionna_version": "2.2.0",
-    "mitsuba_version": "3.9.1",
-    "backend": "llvm_ad_mono_polarized",
-    "is_usable": true
-  }
-  ```
-
-### 2. `list_scenes`
-* **Purpose**: Discover 3D geometric propagation environments available to the simulation engine.
-* **Input Schema**: None `{}`.
-* **Returns**: Catalog of scenes including name, description, and default status (`simple_reflector`).
-
-### 3. `run_simulation`
-* **Purpose**: Execute raw 3D electromagnetic ray tracing and return physical propagation metrics.
-* **Inputs**:
-  * `scene` (string, default: `"simple_reflector"`)
-  * `frequency_hz` (float, in Hertz, > 0, default: `3.5e9`)
-  * `tx_position` (list of 3 floats `[x, y, z]` in meters, default: `[0.0, -10.0, 5.0]`)
-  * `rx_position` (list of 3 floats `[x, y, z]` in meters, default: `[0.0, 10.0, 5.0]`)
-  * `tx_power_dbm` (float, in dBm, default: `30.0`)
-* **Returns**: `simulation_id`, `num_paths`, `total_path_loss_db`, `received_power_dbm`, `delays_ns`, `path_distances_m`, `path_gains_db`, `interaction_types`.
-
-### 4. `analyze_simulation`
-* **Purpose**: Execute ray tracing AND perform physical wireless channel analysis.
-* **Inputs**: Same as `run_simulation`.
-* **Returns**: Composite dictionary containing `simulation_id`, `simulation` dictionary, and `analysis` dictionary:
-  * `strongest_path`: Index, interaction type, gain (dB), delay (ns), distance (m).
-  * `los_present`: Boolean indicating whether direct Line of Sight exists.
-  * `los_path_index`: 1-based path index of the LOS ray (or `null`).
-  * `rms_delay_spread_ns`: RMS delay spread in nanoseconds.
-  * `paths`: List of all paths with individual percentage power contribution (`power_contribution_percent`).
-
-### 5. `generate_visualization`
-* **Purpose**: Render publication-quality plots from completed simulations.
-* **Inputs**:
-  * `simulation_id` (string, required): Existing simulation identifier.
-  * `plot_type` (string, default: `"all"`): One of `"all"`, `"propagation_paths"`, `"received_power"`, `"cir"`, or `"comparison"`.
-  * `comparison_simulation_id` (string, optional): Required if `plot_type="comparison"`.
-* **Returns**: List of generated image file paths on disk.
-
----
-
-## 5. Simulation Storage & Reproducibility
-
-Every simulation executed through `run_simulation` or `analyze_simulation` is stored under a unique timestamped identifier (`sim_YYYYMMDD_HHMMSS_<hex>`):
-
-```text
-results/<simulation_id>/
-├── config.json              # Transceiver geometry and simulation configuration
-├── metrics.json             # Simulation outputs and derived channel analysis
-├── propagation_paths.png    # 2D top-down ray tracing geometry and multipath trajectories
-├── received_power.png       # Link power budget and attenuation waterfall bar chart
-├── cir.png                  # Discrete Channel Impulse Response (CIR) stem plot
-└── comparison.png           # Dual-panel comparative visualization (Power/loss delta + CIR overlay)
+### 6.1 Create and Activate Virtual Environment
+```powershell
+cd C:\Users\eulo_\Downloads\sionna_rt_mcp-main
+C:\Users\eulo_\AppData\Local\Programs\Python\Python310\python.exe -m venv .venv_sionna
+.\.venv_sionna\Scripts\Activate.ps1
 ```
 
-Historical runs are never overwritten. A stored simulation can be inspected or re-visualized at any time using its `simulation_id`.
+### 6.2 Install Dependencies
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install matplotlib
+```
+
+### 6.3 Configure LLVM Standalone (Required on Windows)
+Dr.Jit requires `LLVM-C.dll` for runtime CPU JIT compilation. An isolated copy must be placed outside the system `PATH`:
+- **Location:** `C:\Users\eulo_\LLVM-standalone\LLVM-C.dll`
+- **Important:** Do **not** add the full LLVM `bin` directory to the system `PATH` (prevents Windows `0xC0000005` runtime heap conflicts).
+
+Set the required environment variables:
+```powershell
+$env:DRJIT_LIBLLVM_PATH = "C:\Users\eulo_\LLVM-standalone\LLVM-C.dll"
+$env:DRJIT_LIBCUDA_PATH = "DISABLED"
+$env:DRJIT_LIBOPTIX_PATH = "DISABLED"
+$env:PYTHONIOENCODING = "utf-8"
+```
+
+For full details, see [`docs/WINDOWS_SETUP.md`](docs/WINDOWS_SETUP.md).
 
 ---
 
-## 6. How to Run & Verify
+## 7. Available MCP Tools
 
-### 1. Basic Standalone Simulation
-```bash
-python src/simulation.py
+The server provides seven specialized tools:
+
+| Tool | Purpose | Primary Parameters |
+| :--- | :--- | :--- |
+| **`check_environment`** | Verify runtime environment, versions, and backend | *None* |
+| **`list_scenes`** | Catalog available 3D geometric propagation scenes | *None* |
+| **`run_simulation`** | Execute point-to-point ray tracing between TX and RX | `scene`, `frequency_hz`, `tx_position`, `rx_position`, `tx_power_dbm` |
+| **`generate_radio_map`** | Generate 2D coverage map, render heatmaps, and persist | `scene_name`, `frequency_hz`, `tx_position`, `tx_power_dbm`, `receiver_height`, `cell_size`, `samples_per_tx` |
+| **`list_experiments`** | Retrieve lightweight summaries of all stored experiments | *None* |
+| **`get_experiment_details`**| Inspect full configuration metadata and heatmap paths | `experiment_id` |
+| **`compare_experiments`** | Compare two experiments ($B - A$) and render difference heatmaps | `experiment_id_a`, `experiment_id_b`, `generate_heatmaps` |
+
+For complete parameter types, validation rules, and JSON schemas, see [`docs/MCP_TOOLS_REFERENCE.md`](docs/MCP_TOOLS_REFERENCE.md).
+
+---
+
+## 8. Running the MCP Server & Client Connections
+
+The server supports two transport mechanisms: **Streamable HTTP** (recommended for Antigravity and modern MCP clients) and **Stdio** (for local CLI processes).
+
+### 8.1 Method 1: Streamable HTTP Mode (Recommended)
+
+Run the root-level entrypoint:
+```powershell
+.\.venv_sionna\Scripts\python.exe server.py
 ```
+This starts the FastMCP server with Streamable HTTP transport:
+- **Binding:** `127.0.0.1:8000`
+- **MCP Endpoint:** `http://127.0.0.1:8000/mcp`
+- **Working Directory:** Project root (`C:\Users\eulo_\Downloads\sionna_rt_mcp-main`)
 
-### 2. Connect via MCP AI Clients (Claude Desktop / Cursor)
-Add to your `claude_desktop_config.json`:
+#### Antigravity Configuration
+Add the server definition to `~/.gemini/config/mcp_config.json`:
+
 ```json
 {
   "mcpServers": {
-    "sionna_rt": {
-      "command": "/absolute/path/to/Sionna_RT_MCP/.venv/bin/python",
+    "sionna-rt": {
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
+```
+*Antigravity will automatically connect over Streamable HTTP, discover all seven tools, and make them available in chat.*
+
+---
+
+### 8.2 Method 2: Stdio Mode (Subprocess Execution)
+
+To run the server as a local command-line subprocess over standard I/O:
+```powershell
+# Option A: via server.py
+.\.venv_sionna\Scripts\python.exe server.py --transport stdio
+
+# Option B: directly via src/mcp_server.py
+.\.venv_sionna\Scripts\python.exe src/mcp_server.py
+```
+The server listens for JSON-RPC messages on `stdin` and writes structured outputs to `stdout`. All logs are directed to `stderr`.
+
+#### Claude Desktop Configuration (Stdio)
+Add the server entry to your `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "sionna-rt": {
+      "command": "C:\\Users\\eulo_\\Downloads\\sionna_rt_mcp-main\\.venv_sionna\\Scripts\\python.exe",
       "args": [
-        "/absolute/path/to/Sionna_RT_MCP/src/mcp_server.py"
-      ]
+        "C:\\Users\\eulo_\\Downloads\\sionna_rt_mcp-main\\src\\mcp_server.py"
+      ],
+      "env": {
+        "DRJIT_LIBLLVM_PATH": "C:\\Users\\eulo_\\LLVM-standalone\\LLVM-C.dll",
+        "DRJIT_LIBCUDA_PATH": "DISABLED",
+        "DRJIT_LIBOPTIX_PATH": "DISABLED",
+        "PYTHONIOENCODING": "utf-8"
+      }
     }
   }
 }
 ```
 
-### 3. Run Automated Verification Scripts
-```bash
-# Verify environment runtime
-python scripts/verify_env.py
-
-# Verify MCP client JSON-RPC tool calls
-python scripts/verify_mcp_client.py
-
-# Verify AI agent tool chaining & visualization
-python scripts/verify_agent.py
-```
-
-### 4. Run Complete Automated Pytest Suite (37 Tests)
-```bash
-pytest -v
-```
-
-### 5. End-to-End Natural-Language Demonstration
-```bash
-python scripts/agent_client.py "Compare propagation at 3.5 GHz and 28 GHz between TX [0, -10, 5] and RX [0, 10, 5]. Show the propagation paths and explain the difference."
+#### Claude Desktop Configuration (Streamable HTTP)
+Alternatively, if `python server.py` is running:
+```json
+{
+  "mcpServers": {
+    "sionna-rt": {
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
 ```
 
 ---
 
-## 7. Known Limitations
+## 9. Running Tests and Verification
 
-1. **Deterministic Parsing**: The AI client agent in `scripts/agent_client.py` uses deterministic regular expressions expecting bracketed coordinates (`[x, y, z]`) and explicit frequency units (`GHz`, `MHz`, `Hz`). Unstructured or colloquial language (e.g. "move the transmitter 10 meters north") is not supported.
-2. **Scene Catalog**: Ray tracing currently targets the canonical `simple_reflector` scene. Arbitrary polygonal meshes or complex city maps require importing additional OBJ/XML scene models.
-3. **CPU Execution on WSL**: When NVIDIA OptiX drivers (`libnvoptix.so.1`) are absent in container or WSL environments, Mitsuba automatically defaults to the CPU LLVM JIT backend (`llvm_ad_mono_polarized`). While physically accurate, execution is CPU-bound rather than hardware-accelerated.
-4. **Antenna Array Patterns**: Transceivers currently default to isotropic radiation patterns with vertical polarization (`iso`, `V`).
+### 9.1 Environment Sanity Check
+```powershell
+$env:PYTHONIOENCODING="utf-8"
+.\.venv_sionna\Scripts\python.exe scripts/verify_env.py
+```
+
+### 9.2 Full Pytest Test Suite
+```powershell
+.\.venv_sionna\Scripts\python.exe -m pytest -v
+```
+**Result:** 194 passed, 20 subtests passed across 11 test modules in ~25 seconds.
+
+### 9.3 End-to-End MCP Client Verification
+```powershell
+# Point-to-point verification
+$env:PYTHONIOENCODING="utf-8"
+.\.venv_sionna\Scripts\python.exe scripts/verify_mcp_client.py
+
+# Radio-map and comparison workflow verification
+$env:PYTHONIOENCODING="utf-8"
+.\.venv_sionna\Scripts\python.exe scripts/verify_radio_map_workflow.py
+```
+
+### 9.4 Performance Benchmarking
+```powershell
+.\.venv_sionna\Scripts\python.exe scripts/benchmark_performance.py
+```
+
+---
+
+## 10. Performance Benchmarks
+
+Benchmarked on Windows 11 with Intel Core i7-10750H (CPU LLVM backend `llvm_ad_mono_polarized`):
+
+| Grid Resolution | Cell Size | Evaluation Grid | Total Cells | Rays / TX | Solver Time | Heatmap Gen | Total Pipeline | Peak RAM |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Small Grid** | $5.0$ m | $5 \times 3$ | 15 | 10,000 | 1.703 s* | 0.414 s | 2.139 s | 183.2 MB |
+| **Medium Grid** | $2.5$ m | $9 \times 5$ | 45 | 10,000 | 0.024 s | 0.395 s | 0.449 s | 192.4 MB |
+| **Fine Grid** | $1.0$ m | $21 \times 11$ | 231 | 20,000 | 0.024 s | 0.379 s | 0.435 s | 201.3 MB |
+
+*\*Initial run includes one-time Dr.Jit LLVM JIT compilation warmup (~1.7s). Subsequent warm simulations execute in **~24 ms**.*
+
+---
+
+## 11. Experiment Storage
+
+Experiments are persisted atomically to `experiments/experiment_<id>/`:
+- `metadata.json`: Full configuration, timing, and coverage statistics.
+- `radio_map_data.npz`: Compressed `float64` numerical matrices (`allow_pickle=False`).
+- `rss_heatmap.png`: Received power heatmap (dBm).
+- `path_gain_heatmap.png`: Path gain heatmap (dB).
+
+For complete filesystem documentation, see [`docs/EXPERIMENT_STORAGE.md`](docs/EXPERIMENT_STORAGE.md).
+
+---
+
+## 12. Known Limitations
+
+1. **CPU LLVM Backend:** Simulations execute on CPU LLVM. GPU CUDA/OptiX acceleration is unavailable on Windows Mitsuba 3.x due to Dr.Jit LLVM/PTX toolchain constraints (requires Linux/WSL2 for GPU).
+2. **Single-Transmitter Coverage:** Radio maps evaluate coverage from a single active transmitter array per simulation.
+3. **Headless Visualizations:** Heatmaps are rendered via Matplotlib's `Agg` headless backend; interactive GUI display windows are not spawned.
+4. **Process Teardown Cleanup:** Upon final script termination, Windows CPython static LLVM destructor cleanup may log an exit status `0xc0000374`. This is an exit-time teardown artifact that does **not** affect the persistent MCP server or tool calls.
+
+---
+
+## 13. License
+
+This project is licensed under the Apache License 2.0. NVIDIA Sionna RT is licensed under the Apache License 2.0. Mitsuba 3 is licensed under the BSD-3-Clause license.

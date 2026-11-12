@@ -122,7 +122,7 @@ class SimulationEngine:
             num_cols=active_config.num_cols,
             vertical_spacing=active_config.vertical_spacing,
             horizontal_spacing=active_config.horizontal_spacing,
-            pattern=active_config.antenna_pattern,
+            pattern=active_config.tx_antenna_pattern,
             polarization=active_config.antenna_polarization,
         )
         scene.rx_array = PlanarArray(
@@ -130,24 +130,51 @@ class SimulationEngine:
             num_cols=active_config.num_cols,
             vertical_spacing=active_config.vertical_spacing,
             horizontal_spacing=active_config.horizontal_spacing,
-            pattern=active_config.antenna_pattern,
+            pattern=active_config.rx_antenna_pattern,
             polarization=active_config.antenna_polarization,
         )
 
         # 5. Create and place transmitter and receiver
-        tx = Transmitter(
-            name=active_config.tx_name,
-            position=mi.Point3f(*active_config.tx_position),
-            power_dbm=active_config.tx_power_dbm,
-        )
-        rx = Receiver(
-            name=active_config.rx_name,
-            position=mi.Point3f(*active_config.rx_position),
-        )
+        tx_kwargs = {
+            "name": active_config.tx_name,
+            "position": mi.Point3f(*active_config.tx_position),
+            "power_dbm": active_config.tx_power_dbm,
+        }
+        if active_config.tx_orientation_deg is not None:
+            tx_kwargs["orientation"] = [math.radians(deg) for deg in active_config.tx_orientation_deg]
+
+        try:
+            tx = Transmitter(**tx_kwargs)
+        except TypeError:
+            tx = Transmitter(
+                name=active_config.tx_name,
+                position=mi.Point3f(*active_config.tx_position),
+                power_dbm=active_config.tx_power_dbm,
+            )
+            if active_config.tx_orientation_deg is not None and hasattr(tx, "orientation"):
+                tx.orientation = [math.radians(deg) for deg in active_config.tx_orientation_deg]
+
+        rx_kwargs = {
+            "name": active_config.rx_name,
+            "position": mi.Point3f(*active_config.rx_position),
+        }
+        if active_config.rx_orientation_deg is not None:
+            rx_kwargs["orientation"] = [math.radians(deg) for deg in active_config.rx_orientation_deg]
+
+        try:
+            rx = Receiver(**rx_kwargs)
+        except TypeError:
+            rx = Receiver(
+                name=active_config.rx_name,
+                position=mi.Point3f(*active_config.rx_position),
+            )
+            if active_config.rx_orientation_deg is not None and hasattr(rx, "orientation"):
+                rx.orientation = [math.radians(deg) for deg in active_config.rx_orientation_deg]
 
         scene.add(tx)
         scene.add(rx)
-        tx.look_at(rx)
+        if active_config.tx_orientation_deg is None:
+            tx.look_at(rx)
 
         # 6. Run ray-tracing path solver
         solver = PathSolver()
@@ -236,4 +263,10 @@ class SimulationEngine:
             path_distances_m=path_distances_m,
             path_gains_db=path_gains_db,
             interaction_types=interaction_types,
+            tx_antenna_pattern=config.tx_antenna_pattern or config.antenna_pattern,
+            rx_antenna_pattern=config.rx_antenna_pattern or config.antenna_pattern,
+            antenna_pattern=config.antenna_pattern,
+            antenna_polarization=config.antenna_polarization,
+            tx_orientation_deg=config.tx_orientation_deg,
+            rx_orientation_deg=config.rx_orientation_deg,
         )

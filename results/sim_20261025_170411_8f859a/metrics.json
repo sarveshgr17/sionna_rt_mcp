@@ -1,0 +1,46 @@
+{
+  "simulation_id": "sim_20261025_170411_8f859a",
+  "created_at": "2026-10-25T17:04:11.746877+00:00",
+  "simulation": {
+    "scene_name": "simple_reflector",
+    "frequency_hz": 3500000000.0,
+    "tx_position": [
+      0.0,
+      -10.0,
+      5.0
+    ],
+    "tx_power_dbm": 30.0,
+    "rx_position": [
+      0.0,
+      10.0,
+      -5.0
+    ],
+    "backend": "llvm_ad_mono_polarized",
+    "backend_variant": "llvm_ad_mono_polarized",
+    "num_paths": 0,
+    "total_path_loss_db": Infinity,
+    "received_power_dbm": -Infinity,
+    "min_delay_ns": 0.0,
+    "max_delay_ns": 0.0,
+    "delays_ns": [],
+    "path_distances_m": [],
+    "path_gains_db": [],
+    "interaction_types": [],
+    "frequency": 3500000000.0,
+    "number_of_paths": 0,
+    "path_delays": [],
+    "path_distances": [],
+    "path_gains": [],
+    "total_path_loss": Infinity,
+    "received_power": -Infinity
+  },
+  "analysis": {
+    "strongest_path": null,
+    "los_present": false,
+    "los_path_index": null,
+    "rms_delay_spread_ns": 0.0,
+    "min_delay_ns": 0.0,
+    "max_delay_ns": 0.0,
+    "paths": []
+  }
+}

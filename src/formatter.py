@@ -22,6 +22,7 @@ def format_result(result: SimulationResult) -> str:
         "",
         "Propagation Results:",
         f"  Backend:               {result.backend_variant}",
+        f"  Antennas:              TX: {getattr(result, 'tx_antenna_pattern', result.antenna_pattern)} | RX: {getattr(result, 'rx_antenna_pattern', result.antenna_pattern)} ({getattr(result, 'antenna_polarization', 'V')})",
         f"  Total Paths Found:     {result.num_paths}",
         f"  Total Path Loss:       {result.path_loss_db:.2f} dB",
         f"  Received Power:        {result.rx_power_dbm:.2f} dBm (from {result.tx_power_dbm:.1f} dBm TX)",

@@ -1,7 +1,7 @@
 """Structured result data models for Sionna RT simulation."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -23,6 +23,14 @@ class SimulationResult:
     path_distances_m: List[float] = field(default_factory=list)
     path_gains_db: List[float] = field(default_factory=list)
     interaction_types: List[str] = field(default_factory=list)
+
+    # Antenna and orientation details
+    tx_antenna_pattern: str = "iso"
+    rx_antenna_pattern: str = "iso"
+    antenna_pattern: str = "iso"
+    antenna_polarization: str = "V"
+    tx_orientation_deg: Optional[Tuple[float, float, float]] = None
+    rx_orientation_deg: Optional[Tuple[float, float, float]] = None
 
     # Core property accessors matching conceptual API
     @property
@@ -84,6 +92,13 @@ class SimulationResult:
             "path_distances_m": [float(d) for d in self.path_distances_m],
             "path_gains_db": [float(g) for g in self.path_gains_db],
             "interaction_types": list(self.interaction_types),
+            # Antenna configuration
+            "antenna_pattern": self.antenna_pattern,
+            "tx_antenna_pattern": self.tx_antenna_pattern,
+            "rx_antenna_pattern": self.rx_antenna_pattern,
+            "antenna_polarization": self.antenna_polarization,
+            "tx_orientation_deg": list(self.tx_orientation_deg) if self.tx_orientation_deg is not None else None,
+            "rx_orientation_deg": list(self.rx_orientation_deg) if self.rx_orientation_deg is not None else None,
             # Additional canonical aliases matching core query fields
             "frequency": float(self.frequency_hz),
             "number_of_paths": int(self.num_paths),
