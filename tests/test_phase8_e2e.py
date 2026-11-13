@@ -409,9 +409,9 @@ class TestPhase8EndToEnd(unittest.TestCase):
             scenes_res = await server.call_tool("list_scenes", {})
             scenes_data = _extract(scenes_res)
 
-            self.assertEqual(scenes_data["default_scene"], "simple_reflector")
+            self.assertEqual(scenes_data["default_scene"], "munich")
             scenes_names = [s["name"] for s in scenes_data["scenes"]]
-            self.assertIn("simple_reflector", scenes_names)
+            self.assertIn("munich", scenes_names)
 
             # run_simulation parameter validation
             with self.assertRaises(ToolError):

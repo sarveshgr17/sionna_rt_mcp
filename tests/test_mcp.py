@@ -198,6 +198,7 @@ class TestMCPServer(unittest.TestCase):
             "num_cols",
             "horizontal_spacing",
             "vertical_spacing",
+            "max_depth",
             "tx_antenna_type",
             "rx_antenna_type",
             "tx_orientation_deg",
@@ -209,10 +210,10 @@ class TestMCPServer(unittest.TestCase):
         """Verify existing point-to-point tools execute and return valid structures."""
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {
-            "scene_name": "simple_reflector",
+            "scene_name": "munich",
             "frequency_hz": 3.5e9,
-            "tx_position": [0.0, -10.0, 5.0],
-            "rx_position": [0.0, 10.0, 5.0],
+            "tx_position": [0.0, 0.0, 35.0],
+            "rx_position": [60.0, 20.0, 1.5],
             "tx_power_dbm": 30.0,
             "backend": "llvm_ad_mono_polarized",
             "num_paths": 2,
@@ -234,21 +235,21 @@ class TestMCPServer(unittest.TestCase):
             # 2. list_scenes
             scenes_res = await self.server.call_tool("list_scenes", {})
             scenes_data = _extract_data(scenes_res)
-            self.assertEqual(scenes_data["default_scene"], "simple_reflector")
+            self.assertEqual(scenes_data["default_scene"], "munich")
 
             # 3. run_simulation
             with patch("mcp_server.SimulationEngine") as mock_engine_cls:
                 mock_engine_cls.return_value.run.return_value = mock_result
                 params = {
-                    "scene": "simple_reflector",
+                    "scene": "munich",
                     "frequency_hz": 3.5e9,
-                    "tx_position": [0.0, -10.0, 5.0],
-                    "rx_position": [0.0, 10.0, 5.0],
+                    "tx_position": [0.0, 0.0, 35.0],
+                    "rx_position": [60.0, 20.0, 1.5],
                     "tx_power_dbm": 30.0,
                 }
                 sim_res = await self.server.call_tool("run_simulation", params)
                 sim_data = _extract_data(sim_res)
-                self.assertEqual(sim_data["scene_name"], "simple_reflector")
+                self.assertEqual(sim_data["scene_name"], "munich")
                 self.assertEqual(sim_data["num_paths"], 2)
 
         asyncio.run(_run())
@@ -772,7 +773,7 @@ class TestMCPServer(unittest.TestCase):
             # Normal operations continue working
             res = await self.server.call_tool("list_scenes", {})
             data = _extract_data(res)
-            self.assertEqual(data["default_scene"], "simple_reflector")
+            self.assertEqual(data["default_scene"], "munich")
 
         asyncio.run(_run())
 

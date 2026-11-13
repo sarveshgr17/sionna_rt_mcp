@@ -211,10 +211,10 @@ export function SystemDiagnostics() {
                     setTestArgs(
                       JSON.stringify(
                         {
-                          scene: "simple_reflector",
+                          scene: "munich",
                           frequency_hz: 3.5e9,
-                          tx_position: [0.0, -10.0, 5.0],
-                          rx_position: [0.0, 10.0, 5.0],
+                          tx_position: [0.0, 0.0, 35.0],
+                          rx_position: [60.0, 20.0, 1.5],
                           tx_power_dbm: 30.0,
                         },
                         null,

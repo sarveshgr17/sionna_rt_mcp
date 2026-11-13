@@ -35,6 +35,7 @@ import numpy as np
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
@@ -340,7 +341,7 @@ def _collect_telemetry_recent_sync() -> Dict[str, Any]:
                     entry = {
                         "id": d,
                         "type": "p2p",
-                        "scene": sim.get("scene_name", "simple_reflector"),
+                        "scene": sim.get("scene_name", "munich"),
                         "carrier": f"{sim.get('frequency_hz', 3.5e9) / 1e9:.2f} GHz",
                         "received_power": sim.get("received_power_dbm"),
                         "num_paths": sim.get("num_paths", 2),
@@ -370,7 +371,7 @@ def _collect_telemetry_recent_sync() -> Dict[str, Any]:
                     entry = {
                         "id": d,
                         "type": "radio_map",
-                        "scene": m_data.get("scene_name", "simple_reflector"),
+                        "scene": m_data.get("scene_name", "munich"),
                         "carrier": f"{m_data.get('frequency_hz', 3.5e9) / 1e9:.2f} GHz",
                         "mean_rss": m_data.get("mean_rss_dbm"),
                         "total_cells": m_data.get("total_cells"),
@@ -401,6 +402,77 @@ async def api_telemetry_recent(request: Request) -> JSONResponse:
     return JSONResponse(sanitize_floats(data))
 
 
+_GEOMETRY_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _extract_scene_geometry_sync(scene_name: str) -> Dict[str, Any]:
+    """Extract full 3D mesh geometry for a scene in Three.js coordinates."""
+    if scene_name in _GEOMETRY_CACHE:
+        return _GEOMETRY_CACHE[scene_name]
+
+    from src.engine import ensure_mitsuba_variant
+    ensure_mitsuba_variant()
+    import sionna.rt as rt
+
+    scene_source = getattr(rt.scene, scene_name, None)
+    if scene_source is None:
+        return {"status": "error", "error": f"Unknown scene '{scene_name}'", "code": 404}
+
+    scene = rt.load_scene(scene_source)
+    bbox = scene.mi_scene.bbox()
+    min_pt = [round(float(bbox.min[i]), 2) for i in range(3)]
+    max_pt = [round(float(bbox.max[i]), 2) for i in range(3)]
+
+    meshes_data = []
+    for name, obj in scene.objects.items():
+        mesh = getattr(obj, "mi_mesh", None)
+        if mesh is not None:
+            # Vertex positions in Sionna: [X, Y, Z] -> Three.js: [X, Z, -Y]
+            raw_verts = np.array(mesh.vertex_positions_buffer(), dtype=np.float32).reshape(-1, 3)
+            three_verts = np.column_stack([raw_verts[:, 0], raw_verts[:, 2], -raw_verts[:, 1]])
+            faces = np.array(mesh.faces_buffer(), dtype=np.uint32)
+
+            mat = getattr(obj, "radio_material", None)
+            mat_type = getattr(mat, "itu_type", getattr(mat, "name", "concrete"))
+
+            meshes_data.append({
+                "name": str(name),
+                "material": str(mat_type),
+                "vertices": np.round(three_verts, 2).flatten().tolist(),
+                "faces": faces.tolist(),
+            })
+
+    result = {
+        "status": "success",
+        "scene": scene_name,
+        "bbox": {
+            "min": [min_pt[0], min_pt[2], -max_pt[1]],
+            "max": [max_pt[0], max_pt[2], -min_pt[1]],
+            "raw_min": min_pt,
+            "raw_max": max_pt,
+        },
+        "meshes": meshes_data,
+        "total_vertices": sum(len(m["vertices"]) // 3 for m in meshes_data),
+        "total_faces": sum(len(m["faces"]) // 3 for m in meshes_data),
+    }
+
+    _GEOMETRY_CACHE[scene_name] = result
+    return result
+
+
+async def api_scene_geometry(request: Request) -> JSONResponse:
+    """Return full 3D mesh geometry for a scene offloaded to worker thread."""
+    scene_name = request.path_params.get("scene_name", "").strip()
+    try:
+        data = await anyio.to_thread.run_sync(_extract_scene_geometry_sync, scene_name)
+        if data.get("status") == "error":
+            return JSONResponse({"status": "error", "error": data.get("error")}, status_code=data.get("code", 400))
+        return JSONResponse(data)
+    except Exception as exc:
+        logger.error("Failed to extract scene geometry for %s: %s", scene_name, exc)
+        return JSONResponse({"status": "error", "error": f"Failed extracting geometry: {exc}"}, status_code=500)
+
+
 # -----------------------------------------------------------------------------
 # Starlette Application Routing & Middleware
 # -----------------------------------------------------------------------------
@@ -412,6 +484,7 @@ routes = [
     Route("/api/artifacts/{path:path}", api_artifacts, methods=["GET"]),
     Route("/api/matrix/{experiment_id:str}", api_matrix, methods=["GET"]),
     Route("/api/telemetry/recent", api_telemetry_recent, methods=["GET"]),
+    Route("/api/scenes/{scene_name:str}/geometry", api_scene_geometry, methods=["GET"]),
 ]
 
 middleware = [
@@ -422,6 +495,7 @@ middleware = [
         allow_headers=["*"],
         allow_credentials=True,
     ),
+    Middleware(GZipMiddleware, minimum_size=1000),
 ]
 
 app = Starlette(

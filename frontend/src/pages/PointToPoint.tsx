@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Play,
   RotateCcw,
@@ -13,7 +13,8 @@ import {
   Info,
 } from "lucide-react";
 import { RayTracingVisualizer3D } from "@/components/simulation/RayTracingVisualizer3D";
-import { useEnvironment, useRunSimulation, useScenes } from "@/hooks/useMcp";
+import { useEnvironment, useRunSimulation } from "@/hooks/useMcp";
+import { useActiveScene } from "@/context/SceneContext";
 import { PointToPointParams, PointToPointResult } from "@/types/mcp";
 import {
   BarChart,
@@ -28,14 +29,13 @@ import {
 
 export function PointToPoint() {
   const { data: env } = useEnvironment();
-  const { data: scenes } = useScenes();
   const runSimMutation = useRunSimulation();
+  const { activeScene, setActiveScene, currentSceneConfig, allScenes } = useActiveScene();
 
   // Form Parameters
-  const [scene, setScene] = useState("simple_reflector");
   const [freqGHz, setFreqGHz] = useState<number>(3.5);
-  const [txPos, setTxPos] = useState<[number, number, number]>([0.0, -10.0, 5.0]);
-  const [rxPos, setRxPos] = useState<[number, number, number]>([0.0, 10.0, 5.0]);
+  const [txPos, setTxPos] = useState<[number, number, number]>(currentSceneConfig.defaultTx);
+  const [rxPos, setRxPos] = useState<[number, number, number]>(currentSceneConfig.defaultRx);
   const [txPowerDbm, setTxPowerDbm] = useState<number>(30.0);
   const [maxDepth, setMaxDepth] = useState<number>(2);
   const [antennaType, setAntennaType] = useState<string>("isotropic");
@@ -44,23 +44,33 @@ export function PointToPoint() {
   const [numCols, setNumCols] = useState<number>(1);
   const [hSpacing, setHSpacing] = useState<number>(0.5);
 
+  // Sync default TX/RX positions when scene changes from navbar or selector
+  useEffect(() => {
+    setTxPos(currentSceneConfig.defaultTx);
+    setRxPos(currentSceneConfig.defaultRx);
+  }, [activeScene, currentSceneConfig]);
+
+  const handleSceneChange = (newScene: string) => {
+    setActiveScene(newScene);
+  };
+
   // Active Tab
   const [activeTab, setActiveTab] = useState<"paths" | "cir" | "power" | "json">("paths");
 
-  // Local or default result (initialized with canonical 3.5 GHz values)
+  // Local or default result (initialized with Munich 3.5 GHz values)
   const [simResult, setSimResult] = useState<PointToPointResult>({
     frequency_hz: 3.5e9,
-    tx_position: [0.0, -10.0, 5.0],
-    rx_position: [0.0, 10.0, 5.0],
+    tx_position: [0.0, 0.0, 35.0],
+    rx_position: [60.0, 20.0, 1.5],
     tx_power_dbm: 30.0,
     backend: "llvm_ad_mono_polarized",
     num_paths: 2,
-    total_path_loss: 66.8,
-    received_power: -36.8,
-    path_delays: [66.71, 74.59],
-    path_distances: [20.0, 22.36],
-    path_gains: [-69.35, -70.32],
-    interaction_types: ["Direct Line-of-Sight (LOS)", "Specular Reflection (Wall Plane Y=10m)"],
+    total_path_loss: 78.9,
+    received_power: -48.9,
+    path_delays: [211.2, 235.8],
+    path_distances: [63.3, 70.7],
+    path_gains: [-79.5, -85.2],
+    interaction_types: ["Direct Line-of-Sight (LOS)", "Specular Reflection"],
     simulation_id: "sim_initial",
   });
 
@@ -129,7 +139,7 @@ export function PointToPoint() {
   // Handle simulation run
   const handleExecute = async () => {
     const params: PointToPointParams = {
-      scene,
+      scene: activeScene,
       frequency_hz: frequencyHz,
       tx_position: txPos,
       rx_position: rxPos,
@@ -282,24 +292,26 @@ export function PointToPoint() {
                     Target Mesh Geometry
                   </label>
                   <select
-                    value={scene}
-                    onChange={(e) => setScene(e.target.value)}
+                    value={activeScene}
+                    onChange={(e) => handleSceneChange(e.target.value)}
                     className="w-full text-xs font-mono p-1.5 rounded border border-border bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-rust"
                   >
-                    <option value="simple_reflector">
-                      simple_reflector (Plane at Y=10m, Z=0...10m)
-                    </option>
+                    {allScenes.map((s) => (
+                      <option key={s.name} value={s.name}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-slate-600">
                   <div>
                     <span className="text-slate-400 block text-[9px] uppercase">Boundary Type</span>
-                    <span className="font-semibold text-slate-700">Perfect Electric Conductor</span>
+                    <span className="font-semibold text-slate-700">{currentSceneConfig.boundary}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[9px] uppercase">Dielectric / Reflector</span>
-                    <span className="font-semibold text-slate-700">Concrete (εr=7.0, σ=0.015)</span>
+                    <span className="font-semibold text-slate-700">{currentSceneConfig.material}</span>
                   </div>
                 </div>
               </div>
@@ -538,7 +550,7 @@ export function PointToPoint() {
               delay_ns: pathDelays[i] ?? 0,
               path_gain_db: pathGains[i] ?? -100,
             }))}
-            sceneName={scene}
+            sceneName={activeScene}
           />
 
           {/* 6 KPI Metric Strip */}

@@ -101,7 +101,7 @@ class TestMCPClientAndTerminalE2E(unittest.TestCase):
 
                 # List scenes
                 scene_res = await executor.execute_instruction("Show available scenes")
-                self.assertIn("simple_reflector", scene_res.output)
+                self.assertIn("munich", scene_res.output)
             finally:
                 await client.disconnect()
 

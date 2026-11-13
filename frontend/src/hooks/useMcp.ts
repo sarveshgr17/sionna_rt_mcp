@@ -33,6 +33,15 @@ export function useScenes() {
   });
 }
 
+export function useSceneGeometry(sceneName: string) {
+  return useQuery({
+    queryKey: ["mcp", "scene-geometry", sceneName],
+    queryFn: () => mcpClient.getSceneGeometry(sceneName),
+    staleTime: Infinity,
+    enabled: Boolean(sceneName),
+  });
+}
+
 export function useTelemetryRecent() {
   return useQuery({
     queryKey: ["mcp", "telemetry", "recent"],

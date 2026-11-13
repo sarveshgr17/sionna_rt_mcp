@@ -40,27 +40,40 @@ def ensure_mitsuba_variant() -> str:
     saved_stderr = os.dup(stderr_fd)
     devnull = os.open(os.devnull, os.O_WRONLY)
 
+    chosen_variant = "llvm_ad_mono_polarized"
     try:
         os.dup2(devnull, stderr_fd)
         # If variant is already set, verify it can actually instantiate a scene
+        valid_existing = False
         if mi.variant() is not None:
             try:
                 mi.load_dict({"type": "scene"})
-                return mi.variant()
+                chosen_variant = mi.variant()
+                valid_existing = True
             except Exception:
-                pass
+                valid_existing = False
 
-        try:
-            mi.set_variant("cuda_ad_mono_polarized")
-            mi.load_dict({"type": "scene"})
-            return "cuda_ad_mono_polarized"
-        except Exception:
-            mi.set_variant("llvm_ad_mono_polarized")
-            return "llvm_ad_mono_polarized"
+        if not valid_existing:
+            try:
+                mi.set_variant("cuda_ad_mono_polarized")
+                mi.load_dict({"type": "scene"})
+                chosen_variant = "cuda_ad_mono_polarized"
+            except Exception:
+                mi.set_variant("llvm_ad_mono_polarized")
+                chosen_variant = "llvm_ad_mono_polarized"
     finally:
         os.dup2(saved_stderr, stderr_fd)
         os.close(saved_stderr)
         os.close(devnull)
+
+    # Ensure ITU radio material BSDF plugin is registered on the active Mitsuba variant
+    try:
+        from sionna.rt.radio_materials.itu_material import ITURadioMaterial
+        mi.register_bsdf("itu-radio-material", lambda props: ITURadioMaterial(props=props))
+    except Exception:
+        pass
+
+    return chosen_variant
 
 
 class SimulationEngine:

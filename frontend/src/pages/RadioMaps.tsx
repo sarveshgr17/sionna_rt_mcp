@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Map,
   Play,
@@ -12,27 +12,38 @@ import {
   Eye,
   Info,
 } from "lucide-react";
-import { useGenerateRadioMap, useScenes } from "@/hooks/useMcp";
+import { useGenerateRadioMap } from "@/hooks/useMcp";
+import { useActiveScene } from "@/context/SceneContext";
 import { RadioMapParams, RadioMapResult } from "@/types/mcp";
 import { mcpClient } from "@/services/mcp/client";
 
 export function RadioMaps() {
-  const { data: scenes } = useScenes();
   const generateMutation = useGenerateRadioMap();
+  const { activeScene, setActiveScene, currentSceneConfig, allScenes } = useActiveScene();
 
   // Form State
-  const [sceneName, setSceneName] = useState("simple_reflector");
   const [freqGHz, setFreqGHz] = useState<number>(3.5);
-  const [txPos, setTxPos] = useState<[number, number, number]>([0.0, -10.0, 5.0]);
+  const [txPos, setTxPos] = useState<[number, number, number]>(currentSceneConfig.defaultTx);
   const [txPowerDbm, setTxPowerDbm] = useState<number>(30.0);
   const [antennaType, setAntennaType] = useState<string>("isotropic");
   const [polarization, setPolarization] = useState<string>("V");
 
   // Region & Grid Resolution
   const [regionMode, setRegionMode] = useState<"auto" | "manual">("auto");
-  const [autoMargin, setAutoMargin] = useState<number>(5.0);
+  const [autoMargin, setAutoMargin] = useState<number>(currentSceneConfig.defaultAutoMargin);
   const [receiverHeight, setReceiverHeight] = useState<number>(1.5);
-  const [cellSize, setCellSize] = useState<number>(2.0); // 2m default for snappy response
+  const [cellSize, setCellSize] = useState<number>(currentSceneConfig.defaultCellSize);
+
+  // Sync parameters when scene changes from navbar or selector
+  useEffect(() => {
+    setTxPos(currentSceneConfig.defaultTx);
+    setCellSize(currentSceneConfig.defaultCellSize);
+    setAutoMargin(currentSceneConfig.defaultAutoMargin);
+  }, [activeScene, currentSceneConfig]);
+
+  const handleSceneChange = (newScene: string) => {
+    setActiveScene(newScene);
+  };
 
   // Ray Solver
   const [samplesPerTx, setSamplesPerTx] = useState<number>(50000); // 50k for smooth interactive execution
@@ -51,7 +62,7 @@ export function RadioMaps() {
 
   const handleGenerate = async () => {
     const params: RadioMapParams = {
-      scene_name: sceneName,
+      scene_name: activeScene,
       frequency_hz: freqGHz * 1e9,
       tx_position: txPos,
       tx_power_dbm: txPowerDbm,
@@ -148,6 +159,27 @@ export function RadioMaps() {
                 placeholder="e.g. Coverage Study 3.5GHz"
                 className="w-full text-xs font-mono p-1.5 rounded border border-border bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-rust"
               />
+            </div>
+
+            {/* Target Mesh Scene Geometry */}
+            <div className="p-3 bg-parchment-subtle/50 rounded border border-border/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-slate-800 uppercase">
+                  Target Mesh Geometry
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">SCENE</span>
+              </div>
+              <select
+                value={activeScene}
+                onChange={(e) => handleSceneChange(e.target.value)}
+                className="w-full text-xs font-mono p-1.5 rounded border border-border bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-rust"
+              >
+                {allScenes.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Transmitter & Frequency */}

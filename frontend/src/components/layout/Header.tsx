@@ -9,13 +9,14 @@ import {
   Cpu,
   User
 } from "lucide-react";
-import { useEnvironment, useMcpHealth, useScenes } from "@/hooks/useMcp";
+import { useEnvironment, useMcpHealth } from "@/hooks/useMcp";
+import { useActiveScene } from "@/context/SceneContext";
 
 export function Header() {
   const location = useLocation();
   const { data: health } = useMcpHealth();
   const { data: env } = useEnvironment();
-  const { data: scenes } = useScenes();
+  const { activeScene, setActiveScene, allScenes } = useActiveScene();
 
   // Page titles
   const getBreadcrumb = () => {
@@ -39,7 +40,6 @@ export function Header() {
 
   const isConnected = health?.mcp_connected ?? false;
   const backendName = env?.backend || "llvm_ad_mono_polarized";
-  const defaultScene = scenes?.default_scene || "simple_reflector";
 
   return (
     <header className="h-12 border-b border-border bg-white px-4 flex items-center justify-between select-none">
@@ -53,11 +53,23 @@ export function Header() {
 
         <div className="h-4 w-[1px] bg-border mx-1" />
 
-        {/* Scene Selector Dropdown Pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-parchment-subtle rounded border border-border text-xs font-mono text-slate-700 cursor-pointer hover:bg-parchment transition-colors">
-          <Box className="w-3.5 h-3.5 text-rust" />
-          <span className="font-medium">Scene: {defaultScene}</span>
-          <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+        {/* Scene Selector Dropdown */}
+        <div className="flex items-center gap-1 px-2.5 py-1 bg-parchment-subtle rounded border border-border text-xs font-mono text-slate-700 hover:bg-parchment transition-colors">
+          <Box className="w-3.5 h-3.5 text-rust shrink-0" />
+          <span className="font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Scene:</span>
+          <select
+            value={activeScene}
+            onChange={(e) => setActiveScene(e.target.value)}
+            aria-label="Active 3D Scene"
+            className="bg-transparent font-semibold text-slate-800 text-xs focus:outline-none cursor-pointer pr-1"
+          >
+            {allScenes.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none" />
         </div>
 
         {/* Engine Variant Pill */}

@@ -192,16 +192,39 @@ except (ImportError, ModuleNotFoundError):
 
 _harmonize_module_aliases()
 
-# Supported 3D geometric scenes catalog
+# Supported 3D geometric scenes catalog (strictly Munich, San Francisco, and Simple Street Canyon)
 SUPPORTED_SCENES = {
-    "simple_reflector": {
-        "name": "simple_reflector",
+    "munich": {
+        "name": "munich",
         "description": (
-            "Canonical two-path propagation scene containing a planar reflector. "
-            "Produces a direct Line of Sight (LOS) ray and a single Specular Reflection ray."
+            "Dense urban macro-cell (UMa) scene representing the city center of Munich, Germany, "
+            "including historic architecture (Frauenkirche, St. Peter), building facades, and ground terrain "
+            "(~1.5 km x 1.2 km)."
         ),
         "is_default": True,
-    }
+        "default_tx": [0.0, 0.0, 35.0],
+        "default_rx": [60.0, 20.0, 1.5],
+    },
+    "san_francisco": {
+        "name": "san_francisco",
+        "description": (
+            "Coastal and hilly urban terrain of San Francisco, California, covering high-elevation topography "
+            "and downtown building footprints (~1.2 km x 0.9 km)."
+        ),
+        "is_default": False,
+        "default_tx": [0.0, 0.0, 50.0],
+        "default_rx": [100.0, 50.0, 1.5],
+    },
+    "simple_street_canyon": {
+        "name": "simple_street_canyon",
+        "description": (
+            "Standard 3GPP Urban Micro-cell (UMi) street canyon flanked by concrete, brick, and glass "
+            "building facades (~186 m x 121 m) with rich multipath components."
+        ),
+        "is_default": False,
+        "default_tx": [-20.0, 0.0, 15.0],
+        "default_rx": [20.0, 0.0, 1.5],
+    },
 }
 
 
@@ -321,7 +344,7 @@ def create_mcp_server(
         Returns:
             dict: Structured scene catalog containing:
                 - scenes (list): List of available scene descriptors with name and details.
-                - default_scene (str): The default scene identifier ('simple_reflector').
+                - default_scene (str): The default scene identifier ('munich').
                 - count (int): Total number of supported scenes.
         """
         scenes_list = [
@@ -329,13 +352,15 @@ def create_mcp_server(
                 "name": s["name"],
                 "description": s["description"],
                 "is_default": s["is_default"],
+                "default_tx": s.get("default_tx"),
+                "default_rx": s.get("default_rx"),
             }
             for s in SUPPORTED_SCENES.values()
         ]
 
         return {
             "scenes": scenes_list,
-            "default_scene": "simple_reflector",
+            "default_scene": "munich",
             "count": len(scenes_list),
         }
 
@@ -345,11 +370,11 @@ def create_mcp_server(
             str,
             Field(
                 description=(
-                    "Identifier of the 3D geometric scene to simulate (e.g. 'simple_reflector'). "
+                    "Identifier of the 3D geometric scene to simulate ('munich', 'san_francisco', or 'simple_street_canyon'). "
                     "Use list_scenes to see all supported scenes."
                 )
             ),
-        ] = "simple_reflector",
+        ] = "munich",
         frequency_hz: Annotated[
             float,
             Field(
@@ -364,19 +389,19 @@ def create_mcp_server(
             Field(
                 description=(
                     "Transmitter Cartesian 3D coordinates [x, y, z] in meters. "
-                    "Must be a list of exactly 3 numeric coordinates, e.g. [0.0, -10.0, 5.0]."
+                    "Must be a list of exactly 3 numeric coordinates, e.g. [0.0, 0.0, 35.0]."
                 )
             ),
-        ] = [0.0, -10.0, 5.0],
+        ] = [0.0, 0.0, 35.0],
         rx_position: Annotated[
             List[float],
             Field(
                 description=(
                     "Receiver Cartesian 3D coordinates [x, y, z] in meters. "
-                    "Must be a list of exactly 3 numeric coordinates, e.g. [0.0, 10.0, 5.0]."
+                    "Must be a list of exactly 3 numeric coordinates, e.g. [60.0, 20.0, 1.5]."
                 )
             ),
-        ] = [0.0, 10.0, 5.0],
+        ] = [60.0, 20.0, 1.5],
         tx_power_dbm: Annotated[
             float,
             Field(
@@ -617,8 +642,8 @@ def create_mcp_server(
     def generate_radio_map(
         scene_name: Annotated[
             str,
-            Field(description="Geometric scene identifier (e.g. 'simple_reflector' or 'munich')."),
-        ] = "simple_reflector",
+            Field(description="Geometric scene identifier ('munich', 'san_francisco', or 'simple_street_canyon')."),
+        ] = "munich",
         frequency_hz: Annotated[
             float,
             Field(description="Carrier frequency in Hertz (Hz). Must be > 0 Hz (e.g. 3.5e9 for 3.5 GHz)."),
@@ -630,7 +655,7 @@ def create_mcp_server(
         tx_position: Annotated[
             List[float],
             Field(description="Transmitter Cartesian 3D coordinates [x, y, z] in meters."),
-        ] = [0.0, -10.0, 5.0],
+        ] = [0.0, 0.0, 35.0],
         tx_power_dbm: Annotated[
             float,
             Field(description="Transmitter output power in dBm (e.g. 30.0 dBm = 1.0 Watt)."),

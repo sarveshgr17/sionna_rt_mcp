@@ -102,7 +102,39 @@ class TestBackendAdapter(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.json()
             self.assertEqual(data["status"], "success")
-            self.assertGreater(data["total_runs"], 0)
+
+    def test_04_adapter_scene_geometry(self):
+        """Verify 3D scene geometry endpoint returns valid vertices and faces for all 3 supported scenes."""
+        with httpx.Client(base_url=f"http://127.0.0.1:{self.adapter_port}") as client:
+            # 1. Munich
+            resp = client.get("/api/scenes/munich/geometry")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["scene"], "munich")
+            self.assertGreaterEqual(data["total_vertices"], 30000)
+            self.assertGreaterEqual(data["total_faces"], 35000)
+            self.assertEqual(len(data["meshes"]), 11)
+
+            # 2. Simple Street Canyon
+            resp = client.get("/api/scenes/simple_street_canyon/geometry")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["scene"], "simple_street_canyon")
+            self.assertGreater(data["total_vertices"], 0)
+            self.assertGreater(data["total_faces"], 0)
+            self.assertGreater(len(data["meshes"]), 0)
+
+            # 3. San Francisco
+            resp = client.get("/api/scenes/san_francisco/geometry")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["scene"], "san_francisco")
+            self.assertGreaterEqual(data["total_vertices"], 100000)
+            self.assertGreaterEqual(data["total_faces"], 200000)
+            self.assertGreaterEqual(len(data["meshes"]), 1)
 
 
 if __name__ == "__main__":

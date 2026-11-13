@@ -8,6 +8,7 @@ import {
   RadioMapParams,
   RadioMapResult,
   SceneCatalog,
+  SceneGeometry,
   TelemetryRecentResponse,
 } from "@/types/mcp";
 
@@ -130,6 +131,15 @@ export const mcpClient = {
     const res = await fetch(`${API_BASE}/matrix/${encodeURIComponent(experimentId)}`);
     if (!res.ok) {
       throw new McpClientError(`Matrix data fetch failed with HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
+  // 3D Scene Geometry: Read real meshes and vertices for WebGL rendering
+  async getSceneGeometry(sceneName: string): Promise<SceneGeometry> {
+    const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneName)}/geometry`);
+    if (!res.ok) {
+      throw new McpClientError(`Scene geometry fetch failed with HTTP ${res.status}`);
     }
     return res.json();
   },

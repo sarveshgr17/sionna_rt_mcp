@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "experiment_20261113_050243_90b448cf",
+  "experiment_name": "San Francisco 5.8GHz Topography",
+  "created_at": "2026-11-13T05:02:43.697005+00:00",
+  "simulation_timestamp": "2026-11-13T05:02:43.282777+00:00",
+  "scene_name": "san_francisco",
+  "frequency_hz": 5800000000.0,
+  "tx_position": [
+    0.0,
+    0.0,
+    50.0
+  ],
+  "tx_power_dbm": 33.0,
+  "tx_orientation_deg": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "antenna_type": "isotropic",
+  "antenna_pattern": "iso",
+  "polarization": "V",
+  "measurement_height": 1.5,
+  "region_bounds": [
+    -522.3035583496094,
+    727.6964111328125,
+    -479.18572998046875,
+    470.81427001953125
+  ],
+  "cell_size": [
+    25.0,
+    25.0
+  ],
+  "grid_dimensions": [
+    38,
+    50
+  ],
+  "solver_parameters": {
+    "samples_per_tx": 1000000,
+    "max_depth": 1,
+    "seed": null,
+    "los": true,
+    "specular_reflection": true,
+    "diffraction": true,
+    "scattering": false
+  },
+  "backend_variant": "unknown",
+  "total_cells": 1900,
+  "valid_cells": 274,
+  "zero_power_cells": 1626,
+  "coverage_percentage": 14.421052631578949,
+  "min_rss_dbm": -120.26678466796875,
+  "mean_rss_dbm": -79.90948617197301,
+  "max_rss_dbm": -64.74147033691406,
+  "summary_metrics": {
+    "total_cells": 1900,
+    "valid_cells": 274,
+    "zero_power_cells": 1626,
+    "coverage_percentage": 14.421052631578949,
+    "min_rss_dbm": -120.26678466796875,
+    "mean_rss_dbm": -79.90948617197301,
+    "max_rss_dbm": -64.74147033691406
+  },
+  "array_shapes": {
+    "path_gain_linear": [
+      38,
+      50
+    ],
+    "path_gain_db": [
+      38,
+      50
+    ],
+    "rss_watts": [
+      38,
+      50
+    ],
+    "rss_dbm": [
+      38,
+      50
+    ],
+    "cell_centers": [
+      38,
+      50,
+      3
+    ],
+    "x_coordinates": [
+      50
+    ],
+    "y_coordinates": [
+      38
+    ]
+  },
+  "array_names": [
+    "path_gain_linear",
+    "path_gain_db",
+    "rss_watts",
+    "rss_dbm",
+    "cell_centers",
+    "x_coordinates",
+    "y_coordinates"
+  ],
+  "heatmaps": {
+    "rss_heatmap": {
+      "filename": "rss_heatmap.png",
+      "available": true
+    },
+    "path_gain_heatmap": {
+      "filename": "path_gain_heatmap.png",
+      "available": true
+    }
+  }
+}

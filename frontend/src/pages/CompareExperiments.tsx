@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   GitCompare,
   Play,
@@ -9,25 +10,48 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
+  Layers,
+  Box,
 } from "lucide-react";
 import { useCompareExperiments, useExperiments } from "@/hooks/useMcp";
+import { useActiveScene } from "@/context/SceneContext";
 import { ComparisonResult } from "@/types/mcp";
 import { mcpClient } from "@/services/mcp/client";
 
 export function CompareExperiments() {
   const { data: expData } = useExperiments();
   const compareMutation = useCompareExperiments();
+  const { activeScene, currentSceneConfig } = useActiveScene();
 
   const experiments = expData?.experiments || [];
 
-  const [expA, setExpA] = useState<string>(experiments[0]?.experiment_id || "");
-  const [expB, setExpB] = useState<string>(experiments[1]?.experiment_id || "");
-  const [activeDiffMetric, setActiveDiffMetric] = useState<"rss" | "path_gain">("rss");
+  // Filter experiments to the active scene selected in navbar
+  const sceneExperiments = useMemo(() => {
+    return experiments.filter((e) => e.scene_name.toLowerCase() === activeScene.toLowerCase());
+  }, [experiments, activeScene]);
 
+  const [expA, setExpA] = useState<string>("");
+  const [expB, setExpB] = useState<string>("");
+  const [activeDiffMetric, setActiveDiffMetric] = useState<"rss" | "path_gain">("rss");
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
-  const selectedExpA = experiments.find((e) => e.experiment_id === expA);
-  const selectedExpB = experiments.find((e) => e.experiment_id === expB);
+  // Synchronize default experiment selections whenever active scene changes
+  useEffect(() => {
+    if (sceneExperiments.length >= 2) {
+      setExpA(sceneExperiments[0].experiment_id);
+      setExpB(sceneExperiments[1].experiment_id);
+    } else if (sceneExperiments.length === 1) {
+      setExpA(sceneExperiments[0].experiment_id);
+      setExpB("");
+    } else {
+      setExpA("");
+      setExpB("");
+    }
+    setComparisonResult(null);
+  }, [activeScene, sceneExperiments]);
+
+  const selectedExpA = sceneExperiments.find((e) => e.experiment_id === expA);
+  const selectedExpB = sceneExperiments.find((e) => e.experiment_id === expB);
 
   const handleRunComparison = async () => {
     if (!expA || !expB) return;
@@ -73,6 +97,25 @@ export function CompareExperiments() {
         </div>
       </div>
 
+      {/* Active Scene Context Banner */}
+      <div className="card-technical p-3 bg-parchment-subtle/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2">
+          <Box className="w-4 h-4 text-rust shrink-0" />
+          <span>
+            Active Scene Scope: <strong className="text-slate-900">{currentSceneConfig.label}</strong> ({sceneExperiments.length} experiments available)
+          </span>
+        </div>
+        {sceneExperiments.length < 2 && (
+          <Link
+            to="/radio-maps"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-rust hover:bg-rust-hover text-white text-[11px] font-semibold tracking-wide transition-colors shrink-0"
+          >
+            <Play className="w-3 h-3 fill-current" />
+            <span>Generate Simulation in {activeScene}</span>
+          </Link>
+        )}
+      </div>
+
       {/* A / B Selection Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Experiment A (Baseline) */}
@@ -95,11 +138,15 @@ export function CompareExperiments() {
               onChange={(e) => setExpA(e.target.value)}
               className="w-full text-xs font-mono p-1.5 rounded border border-border bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-rust"
             >
-              {experiments.map((e) => (
-                <option key={e.experiment_id} value={e.experiment_id}>
-                  {e.experiment_name ? `${e.experiment_name} (${e.experiment_id})` : e.experiment_id} — {(e.frequency_hz / 1e9).toFixed(2)} GHz
-                </option>
-              ))}
+              {sceneExperiments.length === 0 ? (
+                <option value="">No experiments saved for {activeScene}</option>
+              ) : (
+                sceneExperiments.map((e) => (
+                  <option key={e.experiment_id} value={e.experiment_id}>
+                    {e.experiment_name ? `${e.experiment_name} (${e.experiment_id})` : e.experiment_id} — {(e.frequency_hz / 1e9).toFixed(2)} GHz
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -141,11 +188,15 @@ export function CompareExperiments() {
               onChange={(e) => setExpB(e.target.value)}
               className="w-full text-xs font-mono p-1.5 rounded border border-border bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-rust"
             >
-              {experiments.map((e) => (
-                <option key={e.experiment_id} value={e.experiment_id}>
-                  {e.experiment_name ? `${e.experiment_name} (${e.experiment_id})` : e.experiment_id} — {(e.frequency_hz / 1e9).toFixed(2)} GHz
-                </option>
-              ))}
+              {sceneExperiments.length === 0 ? (
+                <option value="">No experiments saved for {activeScene}</option>
+              ) : (
+                sceneExperiments.map((e) => (
+                  <option key={e.experiment_id} value={e.experiment_id}>
+                    {e.experiment_name ? `${e.experiment_name} (${e.experiment_id})` : e.experiment_id} — {(e.frequency_hz / 1e9).toFixed(2)} GHz
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

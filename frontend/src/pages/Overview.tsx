@@ -20,16 +20,16 @@ import {
 import {
   useEnvironment,
   useMcpHealth,
-  useScenes,
   useTelemetryRecent,
 } from "@/hooks/useMcp";
+import { useActiveScene } from "@/context/SceneContext";
 
 export function Overview() {
   const navigate = useNavigate();
   const [filterText, setFilterText] = useState("");
   const { data: health, refetch: refetchHealth } = useMcpHealth();
   const { data: env } = useEnvironment();
-  const { data: scenes } = useScenes();
+  const { activeScene, currentSceneConfig } = useActiveScene();
   const { data: telemetry, refetch: refetchTelemetry } = useTelemetryRecent();
 
   const totalRuns = telemetry?.total_runs ?? 24;
@@ -38,13 +38,19 @@ export function Overview() {
   const latest = telemetry?.latest_execution;
   const recentRuns = telemetry?.recent_runs ?? [];
 
-  const filteredRuns = recentRuns.filter((r) =>
-    r.id.toLowerCase().includes(filterText.toLowerCase()) ||
-    r.scene.toLowerCase().includes(filterText.toLowerCase()) ||
-    r.type.toLowerCase().includes(filterText.toLowerCase())
-  );
+  const [sceneScope, setSceneScope] = useState<"active" | "all">("active");
 
-  const activeScene = scenes?.default_scene || "simple_reflector";
+  const filteredRuns = recentRuns.filter((r) => {
+    if (sceneScope === "active" && r.scene.toLowerCase() !== activeScene.toLowerCase()) {
+      return false;
+    }
+    return (
+      r.id.toLowerCase().includes(filterText.toLowerCase()) ||
+      r.scene.toLowerCase().includes(filterText.toLowerCase()) ||
+      r.type.toLowerCase().includes(filterText.toLowerCase())
+    );
+  });
+
   const backend = env?.backend || "llvm_ad_mono_polarized";
 
   return (
@@ -143,7 +149,7 @@ export function Overview() {
                 {activeScene}
               </span>
               <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                1 Scene Loaded (2 Surfaces, 1 Rx, 1 Tx)
+                {currentSceneConfig.label}
               </div>
             </div>
           </div>
@@ -509,6 +515,28 @@ export function Overview() {
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 font-mono text-[11px]">
+              <button
+                onClick={() => setSceneScope("active")}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  sceneScope === "active"
+                    ? "bg-rust text-white font-bold"
+                    : "bg-parchment-subtle text-slate-600 hover:bg-parchment"
+                }`}
+              >
+                Scene: {activeScene}
+              </button>
+              <button
+                onClick={() => setSceneScope("all")}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  sceneScope === "all"
+                    ? "bg-rust text-white font-bold"
+                    : "bg-parchment-subtle text-slate-600 hover:bg-parchment"
+                }`}
+              >
+                All
+              </button>
+            </div>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input

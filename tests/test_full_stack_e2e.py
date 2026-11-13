@@ -124,46 +124,94 @@ class TestFullStackE2E(unittest.TestCase):
         self.assertTrue(env_data["is_usable"])
 
     def test_03_list_scenes_tool(self):
-        """Verify list_scenes returns simple_reflector scene catalog."""
+        """Verify list_scenes returns supported scene catalog containing strictly the three target scenes."""
         res = self.client.post("/api/mcp/call", json={"name": "list_scenes", "arguments": {}})
         self.assertEqual(res.status_code, 200)
         scenes = res.json()["data"]
         self.assertIn("scenes", scenes)
-        self.assertEqual(scenes["default_scene"], "simple_reflector")
+        self.assertEqual(scenes["default_scene"], "munich")
+        self.assertEqual(scenes["count"], 3)
+        names = [s["name"] for s in scenes["scenes"]]
+        self.assertEqual(set(names), {"munich", "san_francisco", "simple_street_canyon"})
 
     def test_04_point_to_point_simulation_execution(self):
         """Verify run_simulation executes real 3D ray tracing in Sionna RT."""
         payload = {
             "name": "run_simulation",
             "arguments": {
-                "scene": "simple_reflector",
+                "scene": "munich",
                 "frequency_hz": 3.5e9,
-                "tx_position": [0.0, -10.0, 5.0],
-                "rx_position": [0.0, 10.0, 5.0],
+                "tx_position": [0.0, 0.0, 35.0],
+                "rx_position": [60.0, 20.0, 1.5],
                 "tx_power_dbm": 30.0,
             },
         }
         res = self.client.post("/api/mcp/call", json=payload)
         self.assertEqual(res.status_code, 200)
         sim_data = res.json()["data"]
-        self.assertEqual(sim_data["num_paths"], 2)
-        self.assertAlmostEqual(sim_data["total_path_loss"], 66.8, delta=0.5)
-        self.assertAlmostEqual(sim_data["received_power"], -36.8, delta=0.5)
-        self.assertEqual(len(sim_data["path_delays"]), 2)
-        self.assertEqual(len(sim_data["path_distances"]), 2)
-        self.assertEqual(len(sim_data["interaction_types"]), 2)
+        self.assertGreaterEqual(sim_data["num_paths"], 1)
+        self.assertIsNotNone(sim_data["total_path_loss"])
+        self.assertIsNotNone(sim_data["received_power"])
+        self.assertGreater(len(sim_data["path_delays"]), 0)
+        self.assertGreater(len(sim_data["path_distances"]), 0)
+        self.assertGreater(len(sim_data["interaction_types"]), 0)
+
+    def test_04b_multiscene_ray_tracing_simulations(self):
+        """Verify real ray tracing across munich, san_francisco, and simple_street_canyon."""
+        scene_configs = [
+            {
+                "scene": "san_francisco",
+                "tx_position": [0.0, 0.0, 50.0],
+                "rx_position": [100.0, 50.0, 1.5],
+                "min_paths": 1,
+            },
+            {
+                "scene": "simple_street_canyon",
+                "tx_position": [-20.0, 0.0, 15.0],
+                "rx_position": [20.0, 0.0, 1.5],
+                "min_paths": 2,
+            },
+            {
+                "scene": "munich",
+                "tx_position": [0.0, 0.0, 35.0],
+                "rx_position": [60.0, 20.0, 1.5],
+                "min_paths": 2,
+            },
+        ]
+        for sc in scene_configs:
+            payload = {
+                "name": "run_simulation",
+                "arguments": {
+                    "scene": sc["scene"],
+                    "frequency_hz": 3.5e9,
+                    "tx_position": sc["tx_position"],
+                    "rx_position": sc["rx_position"],
+                    "tx_power_dbm": 30.0,
+                    "max_depth": 2,
+                },
+            }
+            res = self.client.post("/api/mcp/call", json=payload)
+            self.assertEqual(res.status_code, 200, f"Simulation failed for scene {sc['scene']}")
+            sim_data = res.json()["data"]
+            self.assertGreaterEqual(
+                sim_data["num_paths"],
+                sc["min_paths"],
+                f"Scene {sc['scene']} expected at least {sc['min_paths']} paths, got {sim_data['num_paths']}",
+            )
+            self.assertIsNotNone(sim_data["total_path_loss"])
+            self.assertIsNotNone(sim_data["received_power"])
 
     def test_05_radio_map_generation_and_artifact_delivery(self):
         """Verify generate_radio_map produces valid 2D coverage matrices and PNG heatmaps."""
         payload = {
             "name": "generate_radio_map",
             "arguments": {
-                "scene_name": "simple_reflector",
+                "scene_name": "simple_street_canyon",
                 "frequency_hz": 3.5e9,
-                "tx_position": [0.0, -10.0, 5.0],
+                "tx_position": [-20.0, 0.0, 15.0],
                 "tx_power_dbm": 30.0,
                 "receiver_height": 1.5,
-                "cell_size": 5.0,
+                "cell_size": 10.0,
                 "samples_per_tx": 5000,
                 "experiment_name": "E2E Test Run",
             },

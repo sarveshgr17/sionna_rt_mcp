@@ -17,12 +17,35 @@ export interface SceneItem {
   name: string;
   description: string;
   is_default: boolean;
+  default_tx?: [number, number, number];
+  default_rx?: [number, number, number];
 }
 
 export interface SceneCatalog {
   scenes: SceneItem[];
   default_scene: string;
   count: number;
+}
+
+export interface SceneMesh {
+  name: string;
+  material: string;
+  vertices: number[];
+  faces: number[];
+}
+
+export interface SceneGeometry {
+  status: string;
+  scene: string;
+  bbox: {
+    min: [number, number, number];
+    max: [number, number, number];
+    raw_min: [number, number, number];
+    raw_max: [number, number, number];
+  };
+  meshes: SceneMesh[];
+  total_vertices: number;
+  total_faces: number;
 }
 
 // 3. run_simulation (Point-to-Point)

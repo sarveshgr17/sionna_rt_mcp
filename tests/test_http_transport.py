@@ -129,7 +129,7 @@ class TestHTTPTransport(unittest.TestCase):
                     scenes_data = json.loads(scenes_res.content[0].text)
                     self.assertIn("scenes", scenes_data)
                     self.assertGreaterEqual(scenes_data["count"], 1)
-                    self.assertEqual(scenes_data["default_scene"], "simple_reflector")
+                    self.assertEqual(scenes_data["default_scene"], "munich")
 
         anyio.run(run_test)
 
@@ -150,7 +150,7 @@ class TestHTTPTransport(unittest.TestCase):
                 content = result.content
             self.assertTrue(len(content) > 0)
             data = json.loads(content[0].text)
-            self.assertEqual(data["default_scene"], "simple_reflector")
+            self.assertEqual(data["default_scene"], "munich")
 
         anyio.run(run_test)
 

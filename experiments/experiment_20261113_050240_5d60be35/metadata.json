@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "experiment_20261113_050240_5d60be35",
+  "experiment_name": "Street Canyon 28GHz High-Power",
+  "created_at": "2026-11-13T05:02:40.189035+00:00",
+  "simulation_timestamp": "2026-11-13T05:02:39.776321+00:00",
+  "scene_name": "simple_street_canyon",
+  "frequency_hz": 28000000000.0,
+  "tx_position": [
+    -20.0,
+    0.0,
+    15.0
+  ],
+  "tx_power_dbm": 35.0,
+  "tx_orientation_deg": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "antenna_type": "isotropic",
+  "antenna_pattern": "iso",
+  "polarization": "V",
+  "measurement_height": 1.5,
+  "region_bounds": [
+    -100.76966857910156,
+    99.23033142089844,
+    -65.7614631652832,
+    66.23854064941406
+  ],
+  "cell_size": [
+    4.0,
+    4.0
+  ],
+  "grid_dimensions": [
+    33,
+    50
+  ],
+  "solver_parameters": {
+    "samples_per_tx": 1000000,
+    "max_depth": 1,
+    "seed": null,
+    "los": true,
+    "specular_reflection": true,
+    "diffraction": true,
+    "scattering": false
+  },
+  "backend_variant": "unknown",
+  "total_cells": 1650,
+  "valid_cells": 1584,
+  "zero_power_cells": 66,
+  "coverage_percentage": 96.0,
+  "min_rss_dbm": -155.6578826904297,
+  "mean_rss_dbm": -87.2774080507683,
+  "max_rss_dbm": -48.67771911621094,
+  "summary_metrics": {
+    "total_cells": 1650,
+    "valid_cells": 1584,
+    "zero_power_cells": 66,
+    "coverage_percentage": 96.0,
+    "min_rss_dbm": -155.6578826904297,
+    "mean_rss_dbm": -87.2774080507683,
+    "max_rss_dbm": -48.67771911621094
+  },
+  "array_shapes": {
+    "path_gain_linear": [
+      33,
+      50
+    ],
+    "path_gain_db": [
+      33,
+      50
+    ],
+    "rss_watts": [
+      33,
+      50
+    ],
+    "rss_dbm": [
+      33,
+      50
+    ],
+    "cell_centers": [
+      33,
+      50,
+      3
+    ],
+    "x_coordinates": [
+      50
+    ],
+    "y_coordinates": [
+      33
+    ]
+  },
+  "array_names": [
+    "path_gain_linear",
+    "path_gain_db",
+    "rss_watts",
+    "rss_dbm",
+    "cell_centers",
+    "x_coordinates",
+    "y_coordinates"
+  ],
+  "heatmaps": {
+    "rss_heatmap": {
+      "filename": "rss_heatmap.png",
+      "available": true
+    },
+    "path_gain_heatmap": {
+      "filename": "path_gain_heatmap.png",
+      "available": true
+    }
+  }
+}
