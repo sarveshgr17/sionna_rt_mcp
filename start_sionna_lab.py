@@ -48,7 +48,31 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
+def free_ports(ports=(8000, 8080, 5173)):
+    """Release ports if occupied by stale processes to prevent Errno 98."""
+    for port in ports:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.2)
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    cmd = f"lsof -ti :{port} 2>/dev/null || fuser {port}/tcp 2>/dev/null || true"
+                    out = subprocess.check_output(cmd, shell=True).decode().strip()
+                    for p in out.split():
+                        try:
+                            pid = int(p.strip())
+                            if pid != os.getpid():
+                                print(f"  [*] Port {port} in use by PID {pid}. Releasing port...")
+                                os.kill(pid, signal.SIGTERM)
+                                time.sleep(0.3)
+                                os.kill(pid, signal.SIGKILL)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+
 def main():
+    free_ports()
     lan_ip = get_lan_ip()
     print("=" * 72)
     print("      SIONNA LAB — Wireless Propagation Simulation Workstation")
@@ -71,9 +95,20 @@ def main():
 
     print("  [3] Starting Vite Frontend (Dual-Stack [::]:5173)...")
     frontend_dir = os.path.join(project_root, "frontend")
-    bun_bin = "/home/sarvesh/.bun/bin/bun" if os.path.exists("/home/sarvesh/.bun/bin/bun") else "bun"
+    import shutil
+    bun_bin = shutil.which("bun") or (
+        os.path.expanduser("~/.bun/bin/bun")
+        if os.path.exists(os.path.expanduser("~/.bun/bin/bun"))
+        else None
+    )
+    if bun_bin and os.path.exists(bun_bin):
+        frontend_cmd = [bun_bin, "run", "dev", "--", "--host", "::", "--port", "5173"]
+    else:
+        npm_bin = shutil.which("npm") or "npm"
+        frontend_cmd = [npm_bin, "run", "dev", "--", "--host", "::", "--port", "5173"]
+
     p_vite = subprocess.Popen(
-        [bun_bin, "run", "dev", "--", "--host", "::", "--port", "5173"],
+        frontend_cmd,
         cwd=frontend_dir,
     )
     processes.append(p_vite)

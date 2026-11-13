@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "experiment_20261113_054917_a21db6f9",
+  "experiment_name": "E2E Test Run",
+  "created_at": "2026-11-13T05:49:17.953343+00:00",
+  "simulation_timestamp": "2026-11-13T05:49:17.040840+00:00",
+  "scene_name": "simple_street_canyon",
+  "frequency_hz": 3500000000.0,
+  "tx_position": [
+    -20.0,
+    0.0,
+    15.0
+  ],
+  "tx_power_dbm": 30.0,
+  "tx_orientation_deg": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "antenna_type": "isotropic",
+  "antenna_pattern": "iso",
+  "polarization": "V",
+  "measurement_height": 1.5,
+  "region_bounds": [
+    -98.96609497070312,
+    97.4267578125,
+    -65.3305549621582,
+    65.8076286315918
+  ],
+  "cell_size": [
+    10.0,
+    10.0
+  ],
+  "grid_dimensions": [
+    14,
+    20
+  ],
+  "solver_parameters": {
+    "samples_per_tx": 5000,
+    "max_depth": 3,
+    "seed": null,
+    "los": true,
+    "specular_reflection": true,
+    "diffraction": true,
+    "scattering": false
+  },
+  "backend_variant": "llvm_ad_mono_polarized",
+  "total_cells": 280,
+  "valid_cells": 223,
+  "zero_power_cells": 57,
+  "coverage_percentage": 79.64285714285714,
+  "min_rss_dbm": -88.77986145019531,
+  "mean_rss_dbm": -51.647212691371216,
+  "max_rss_dbm": -36.66578674316406,
+  "summary_metrics": {
+    "total_cells": 280,
+    "valid_cells": 223,
+    "zero_power_cells": 57,
+    "coverage_percentage": 79.64285714285714,
+    "min_rss_dbm": -88.77986145019531,
+    "mean_rss_dbm": -51.647212691371216,
+    "max_rss_dbm": -36.66578674316406
+  },
+  "array_shapes": {
+    "path_gain_linear": [
+      14,
+      20
+    ],
+    "path_gain_db": [
+      14,
+      20
+    ],
+    "rss_watts": [
+      14,
+      20
+    ],
+    "rss_dbm": [
+      14,
+      20
+    ],
+    "cell_centers": [
+      14,
+      20,
+      3
+    ],
+    "x_coordinates": [
+      20
+    ],
+    "y_coordinates": [
+      14
+    ]
+  },
+  "array_names": [
+    "path_gain_linear",
+    "path_gain_db",
+    "rss_watts",
+    "rss_dbm",
+    "cell_centers",
+    "x_coordinates",
+    "y_coordinates"
+  ],
+  "heatmaps": {
+    "rss_heatmap": {
+      "filename": "rss_heatmap.png",
+      "available": true
+    },
+    "path_gain_heatmap": {
+      "filename": "path_gain_heatmap.png",
+      "available": true
+    }
+  }
+}
